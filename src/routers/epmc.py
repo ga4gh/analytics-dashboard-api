@@ -1,11 +1,17 @@
+<<<<<<< Updated upstream
 import logging
+=======
+>>>>>>> Stashed changes
 from fastapi import APIRouter, HTTPException, Depends, Body
 from sqlalchemy.orm import Session
 import json
 from datetime import datetime, timezone
 
+<<<<<<< Updated upstream
 logger = logging.getLogger(__name__)
 
+=======
+>>>>>>> Stashed changes
 from src.models.pmc_article import PMCArticle, PMCArticleCustom, PMCArticleFull, PMCArticleListCustomResponse
 from src.models.pmc_author import PMCAuthor
 from src.models.citation import Citation as CitationModel, CitationList, TotalCitations
@@ -167,7 +173,11 @@ class EPMC:
             grant_service = Grant(repo)
 
             try:
+<<<<<<< Updated upstream
                 logger.info("Ingesting PMC data for keyword: %s", keyword)
+=======
+                print("ingesting")
+>>>>>>> Stashed changes
                 result = service.insert_articles_by_keyword(keyword, created_by="system")
                 #citations_result = service.insert_citations(created_by="system")
                 references_result = service.insert_references(created_by="system")

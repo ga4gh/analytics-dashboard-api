@@ -73,7 +73,10 @@ class EPMCService:
         try:
             return self.epmc_repo.get_highest_ingestion_version() + 1
         except Exception:
+<<<<<<< Updated upstream
             logger.warning("Could not fetch highest ingestion version; defaulting to 1")
+=======
+>>>>>>> Stashed changes
             return 1
         
     def insert_articles_by_keyword(self, keyword: str, created_by: str) -> dict[str, int]:
