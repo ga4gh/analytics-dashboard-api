@@ -177,3 +177,42 @@ The frontend is a Plotly Dash single-page application served via Gunicorn (2 wor
 - PyPI download statistics and package usage
 - EuropePMC citation and publication analytics
 - Cross-source GA4GH impact overview
+
+---
+
+# Design Decisions
+
+Key architectural decisions are recorded as Architecture Decision Records (ADRs) in [`docs/architecture/decisions/`](architecture/decisions/). Each record captures the context, the decision made, and its consequences.
+
+### Record Architecture Decisions
+[`0001-record-architecture-decisions.md`](architecture/decisions/0001-record-architecture-decisions.md)
+
+### Formalise Setup Instructions and API Information in Notebooks
+[`0002-formalise-the-setup-instructions-and-api-information-in-all-notebooks.md`](architecture/decisions/0002-formalise-the-setup-instructions-and-api-information-in-all-notebooks.md)
+
+### Review EuropePMC and Decide Architecture for Data
+[`0003-review-europe-pmc-and-decide-architecture-for-data.md`](architecture/decisions/0003-review-europe-pmc-and-decide-architecture-for-data.md)
+
+### PMC Integration as Data Source After v0.2
+[`0004-pmc-integration-as-data-source-after-v0-2.md`](architecture/decisions/0004-pmc-integration-as-data-source-after-v0-2.md)
+
+### PubMed Data Cleanup
+[`0005-pubmed-data-cleanup.md`](architecture/decisions/0005-pubmed-data-cleanup.md)
+
+### Python ORM
+[`0006-python-orm.md`](architecture/decisions/0006-python-orm.md)
+
+### Infrastructure as Code — CloudFormation over Terraform
+[`0007-cloudformation-over-terraform.md`](architecture/decisions/0007-cloudformation-over-terraform.md)
+
+### Compute — ECS Fargate over EC2 or Kubernetes
+[`0008-ecs-fargate-for-compute.md`](architecture/decisions/0008-ecs-fargate-for-compute.md)
+
+### Database Migrations — Liquibase
+[`0009-liquibase-for-db-migrations.md`](architecture/decisions/0009-liquibase-for-db-migrations.md)
+
+### Audit Strategy — Unified Audit Log Table
+[`0010-unified-audit-log.md`](architecture/decisions/0010-unified-audit-log.md)
+
+### Data Provenance — EuropePMC Ingestion Versioning
+[`0011-epmc-data-provenance.md`](architecture/decisions/0011-epmc-data-provenance.md)
