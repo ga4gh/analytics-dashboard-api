@@ -2,6 +2,10 @@
  
 **Date:** 2026-05
 
+## Status
+
+Accepted
+
 ## Context
 
 The application consists of two long-running web services (FastAPI backend, Dash frontend) and one pre-deployment one-shot task (Liquibase migrations). A compute platform was needed to run these containers in AWS.

@@ -216,3 +216,6 @@ Key architectural decisions are recorded as Architecture Decision Records (ADRs)
 
 ### Data Provenance — EuropePMC Ingestion Versioning
 [`0011-epmc-data-provenance.md`](architecture/decisions/0011-epmc-data-provenance.md)
+
+### Remove PubMed in Favour of EuropePMC
+[`0012-remove-pubmed-in-favour-of-europepmc.md`](architecture/decisions/0012-remove-pubmed-in-favour-of-europepmc.md)

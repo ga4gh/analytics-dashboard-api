@@ -2,6 +2,10 @@
 
 **Date:** 2026-05
 
+## Status
+
+Accepted
+
 ## Context
 
 The PostgreSQL schema must evolve as the application adds tables, columns, indexes, and constraints. Changes need to be:

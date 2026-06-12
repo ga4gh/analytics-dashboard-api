@@ -2,6 +2,10 @@
 
 **Date:** 2026-05
 
+## Status
+
+Accepted
+
 ## Context
 
 The project needs a repeatable, automated way to provision and update AWS infrastructure (VPC, RDS, ECS cluster, ALB, IAM roles, Secrets Manager). Two options were evaluated:
@@ -18,8 +22,8 @@ The Terraform setup required:
 These added operational overhead without meaningful benefit for a two-service deployment.
 
 ## Decision
-
-Use AWS CloudFormation for all infrastructure. Templates are committed to `infrastructure/cloudformation/` and deployed via `aws cloudformation deploy` in GitHub Actions. The existing `terraform/staging/rds/` directory is not used for new infrastructure.
+**Note** These decisions have been made but the imeplentation changes are yet to be done.
+Use AWS CloudFormation for all infrastructure. Templates are committed to `infrastructure/cloudformation/`(ToDo) and deployed via `aws cloudformation deploy` in GitHub Actions. The existing `terraform/staging/rds/` directory is not used for new infrastructure(ToDo)
 
 ## Consequences
 

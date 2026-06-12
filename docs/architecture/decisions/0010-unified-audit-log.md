@@ -2,6 +2,10 @@
 
 **Date:** 2026-06
 
+## Status
+
+Accepted
+
 ## Context
 
 The initial schema implemented a separate `*_audit` table for every main entity table (e.g. `records_audit`, `pmc_articles_audit`, `github_repos_audit`). Each audit table had typed `_before` and `_after` columns for every field in its parent table.
