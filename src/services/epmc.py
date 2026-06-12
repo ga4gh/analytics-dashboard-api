@@ -1,10 +1,6 @@
 import logging
 from typing import Counter, List
-
 from src.clients.epmc import EPMCClient
-
-logger = logging.getLogger(__name__)
-
 from src.models.citation import CitationOverYears, TotalCitations
 from src.models.entities.pmc_article import PMCArticle
 from src.models.entities.pmc_author import PMCAuthor, PMCAffiliation, ArticleAuthor
@@ -12,9 +8,9 @@ from src.models.entities.extras import Grant, FullText, Keyword
 from src.models.entities.citations import Citation, Reference
 from src.models.entities.record import Record, RecordType, Source, Status, ProductType
 from src.models.entities.ingestion import Ingestion
-
 from src.repositories.epmc import EPMCRepo
 
+logger = logging.getLogger(__name__)
 
 class EPMCService:
     def __init__(self, repo: EPMCRepo) -> None:
@@ -73,10 +69,7 @@ class EPMCService:
         try:
             return self.epmc_repo.get_highest_ingestion_version() + 1
         except Exception:
-<<<<<<< Updated upstream
             logger.warning("Could not fetch highest ingestion version; defaulting to 1")
-=======
->>>>>>> Stashed changes
             return 1
         
     def insert_articles_by_keyword(self, keyword: str, created_by: str) -> dict[str, int]:
