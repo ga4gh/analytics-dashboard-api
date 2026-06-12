@@ -1,7 +1,4 @@
-<<<<<<< Updated upstream
 import logging
-=======
->>>>>>> Stashed changes
 from sqlalchemy.orm import sessionmaker, Session
 from typing import Generator
 
