@@ -60,14 +60,6 @@ def main() -> FastAPI:
     record_sql_builder = sqlbuilder.SQLBuilder("records").allow_fields(record_fields - {"id"})
     record_repo = RecordRepo(db_conn, record_sql_builder)
 
-    article_fields = set(Article.model_fields.keys())
-    article_sql_builder = sqlbuilder.SQLBuilder("articles").allow_fields(article_fields - {"id"})
-    article_repo = ArticleRepo(db_conn, article_sql_builder)
-
-    author_fields = set(Author.model_fields.keys())
-    author_sql_builder = sqlbuilder.SQLBuilder("authors").allow_fields(author_fields - {"id"})
-    author_repo = AuthorRepo(db_conn, author_sql_builder)
-
     # GitHub setup
     gh_api_key = os.getenv("GITHUB_API_KEY", "")
     gh_org = os.getenv("GITHUB_ORG", "ga4gh")  # change via env if needed
