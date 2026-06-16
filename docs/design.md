@@ -1,30 +1,26 @@
-# GA4GH Analytics Dashboard: Design Document
+# GA4GH Analytics Dashboard
 
-* Project Title: GA4GH Analytics Dashboard
-* Project Maintainers:
-  * GA4GH Technical Team
-    * Dashrath Chauhan (dashrath.chauhan@ga4gh.org)
-    * Chen Chen (chen.chen@ga4gh.org)
-    * Jeremy Adams (jeremy.adams@ga4gh.org)
-    * Jimmy Payyappilly (jimmy.payyappilly@ga4gh.org)
+## Introduction
+Analytics are important for standards organisations like GA4GH as it helps to make data-driven decisions. The GA4GH Analytics Dashboard is a one-stop resource for understanding the real-world impact of GA4GH standards, policy frameworks, and products. Drawing on data from GitHub, PyPI, and Europe PMC, it tracks how GA4GH's work has been adopted, cited, and built upon across the genomics community.
 
-## Overview
-Analytics are important for standards organisations like GA4GH as it helps to make data-driven The GA4GH Analytics Dashboard is a one-stop resource for understanding the real-world impact of GA4GH standards, policy frameworks, and products. Drawing on data from GitHub, PyPI, and EuropePMC, it tracks how GA4GH's work has been adopted, cited, and built upon across the genomics community.
+Whether you're a Work Stream contributor looking to understand how your efforts are landing, a product lead shaping the next development cycle, or a stakeholder making the case for genomic data sharing, this dashboard gives you the evidence to do it. Explore trends, spot implementation gaps, and see over a decade of open science translated into data.
 
-Whether you're a Work Stream contributor looking to understand how your efforts are landing, a product lead shaping the next development cycle, or a stakeholder making the case for genomic data sharing — this dashboard gives you the evidence to do it. Explore trends, spot implementation gaps, and see over a decade of open science translated into data.
 
-Sources (will expand):
-    GitHub
-    PyPI
-    EuropePMC
+## Requirements
+The dashboard ingests data from sources mentioned below, and draws out useful GA4GH-related analytics data from it such as publications, collaborators, software packages, countries with presence, etc. All the ingested data is curated and then creatively visualised for easy understanding of the impact. The data sources are selected based on parameters such as the quality and quantity of the data available, the importance of the data to GA4GH collaborators, and in executive decision making of future efforts. 
 
-# Scope & Requirements
+Data sources (will expand over time) 
+* Europe PMC
+* GitHub
+* The Python Package Index (PyPI) 
 
-## Goals
+The initial versions of the dashboard was based on Jupyter notebooks but to make it more accessible, the latest versions are web-based and available on the GA4GH domain. Regular ingestion of data from the sources ensure the analytics data and corresponding visualisations are up-to-date. 
 
-# Architecture & System Design
+### Goals
 
-## System Overview
+## Architecture & System Design
+
+### System Overview
 
 The GA4GH Analytics Dashboard is a two-service web application deployed on AWS using ECS Fargate. It consists of a Python/FastAPI backend that ingests and serves data from GitHub, PyPI, and EuropePMC, and a Python/Dash frontend that visualises that data for stakeholders. Both services run as Docker containers defined in their respective repositories and are provisioned through CloudFormation templates.
 
