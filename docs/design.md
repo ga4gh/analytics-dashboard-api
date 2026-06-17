@@ -24,7 +24,6 @@ The initial versions of the dashboard was based on Jupyter notebooks but to make
 The GA4GH Analytics Dashboard is a two-service web application deployed on GA4GH's cloud instance. AWS is the cloud provider and the deployments are managed through ECS Fargate. The dashboard application consists of a Python/FastAPI backend that ingests and serves data from the data sources, and a Python with [Plotly Dash](https://dash.plotly.com) frontend that visualises the data for community. Both services run as Docker containers defined in their respective repositories and are provisioned as well as managed through CloudFormation templates.
 
 
----
 
 ### Infrastructure Components
 
@@ -32,15 +31,15 @@ The GA4GH Analytics Dashboard is a two-service web application deployed on GA4GH
 
 A dedicated VPC provides network isolation for all resources of the dashboard and ensures appropriate management controls.
 
----
 
 #### Relational Database 
 
 A single Amazon RDS (PostgreSQL) instance provides persistent storage for dashboard's data. As mentioned, the database stack is provisioned through CloudFormation templates and sits in the **private subnets** unreachable from the internet.
 
-Database schema migrations are managed by [Liquibase](https://www.liquibase.org/). On each deployment, a one-time ECS Fargate task runs the `analytics-dashboard-liquibase` container, which applies any pending changesets from `liquibase/dbchangelog.xml` against the target database before the backend service is updated.
+Database schema migrations are managed (versioned too) by [Liquibase](https://www.liquibase.org/). On each deployment, a one-time ECS Fargate task runs the `analytics-dashboard-liquibase` container, which applies any pending changesets from `liquibase/dbchangelog.xml` against the target database before the backend service is updated ensuring schema and application code are always in sync. 
 
----
+See [schema-tables.md](schema-tables.md) and [er-diagram.md](er-diagram.md) for the full schema. 
+
 
 #### Container Registry
 
@@ -60,19 +59,19 @@ Images are built for the `linux/arm64` platform (Graviton) to match the Fargate 
 
 An ECS cluster runs both application services as serverless Fargate tasks. No EC2 instances are managed. The CloudFormation ECS stack provisions:
 
-##### Cluster
-- One ECS cluster per environment (`analytics-staging` / `analytics-prod`)
-- Platform: `FARGATE` with Graviton (`ARM64`) CPU architecture
+* Cluster
+  * One ECS cluster per environment (`analytics-staging` / `analytics-prod`)
+  * Platform: `FARGATE` with Graviton (`ARM64`) CPU architecture
 
-##### Backend Service — `analytics-dashboard`
-- Container: `analytics-dashboard` image from ECR
+* Backend Service — `analytics-dashboard`
+  * Container: `analytics-dashboard` image from ECR
 
-##### Frontend Service — `analytics-dashboard-ui`
-- Container: `analytics-dashboard-ui` image from ECR
+* Frontend Service — `analytics-dashboard-ui`
+  * Container: `analytics-dashboard-ui` image from ECR
 
-##### Liquibase Migration Task (pre-deployment)
-- Container: `analytics-dashboard-liquibase` image from ECR
-- Runs as a one-shot `run-task` call (not a long-running service)
+* Liquibase Migration Task (pre-deployment)
+  * Container: `analytics-dashboard-liquibase` image from ECR
+  * Runs as a one-shot `run-task` call (not a long-running service)
 
 
 
@@ -82,7 +81,7 @@ A single internet-facing Application Load Balancer sits in the **public subnets*
 
 
 
-#### Logging
+### Logging
 
 All ECS task output (stdout/stderr) is routed to CloudWatch Logs via the `awslogs` log driver. Log groups:
 
@@ -93,7 +92,7 @@ All ECS task output (stdout/stderr) is routed to CloudWatch Logs via the `awslog
 Log retention: 30 days (staging), 90 days (production).
 
 
-#### CI/CD Pipeline 
+### CI/CD Pipeline 
 > [!WARNING]
 > Work in progress - Currently, it's a manual process. Automated production instance will be implemented soon.
 
@@ -139,19 +138,12 @@ git push → develop                    git push → main
 └─────────────────────────────────────────────────────────┘
 ```
 
----
 
-## Database Schema
 
-See [schema-tables.md](schema-tables.md) and [er-diagram.md](er-diagram.md) for the full schema.
 
-The database is versioned and migrated through Liquibase using `liquibase/dbchangelog.xml`. Each deployment runs the migration task before any application containers are updated, ensuring schema and application code are always in sync.
+### API/Interface Design
 
----
-
-## API / Interface Design
-
-### Backend (`analytics-dashboard`) — FastAPI, port 8000
+#### Backend (`analytics-dashboard`) — FastAPI, port 8000
 
 The backend exposes a REST API consumed by the frontend. Key router modules:
 
@@ -165,7 +157,7 @@ The backend exposes a REST API consumed by the frontend. Key router modules:
 
 Interactive API documentation is available at `/docs` (Swagger UI) and `/redoc`.
 
-### Frontend (`analytics-dashboard-ui`) — Plotly Dash, port 8050
+#### Frontend (`analytics-dashboard-ui`) — Plotly Dash, port 8050
 
 The frontend is a Plotly Dash single-page application served via Gunicorn (2 workers). It connects to the backend API to fetch data and renders interactive visualisations for:
 
@@ -174,44 +166,9 @@ The frontend is a Plotly Dash single-page application served via Gunicorn (2 wor
 - EuropePMC citation and publication analytics
 - Cross-source GA4GH impact overview
 
----
 
-# Design Decisions
+## Design Decisions
 
-Key architectural decisions are recorded as Architecture Decision Records (ADRs) in [`docs/architecture/decisions/`](architecture/decisions/). Each record captures the context, the decision made, and its consequences.
+Key architectural decisions are recorded as Architecture Decision Records (ADRs) in [`doc/architecture/decisions/`](architecture/decisions/). Each record captures the context, the decision made, and its consequences.
 
-### Record Architecture Decisions
-[`0001-record-architecture-decisions.md`](architecture/decisions/0001-record-architecture-decisions.md)
 
-### Formalise Setup Instructions and API Information in Notebooks
-[`0002-formalise-the-setup-instructions-and-api-information-in-all-notebooks.md`](architecture/decisions/0002-formalise-the-setup-instructions-and-api-information-in-all-notebooks.md)
-
-### Review EuropePMC and Decide Architecture for Data
-[`0003-review-europe-pmc-and-decide-architecture-for-data.md`](architecture/decisions/0003-review-europe-pmc-and-decide-architecture-for-data.md)
-
-### PMC Integration as Data Source After v0.2
-[`0004-pmc-integration-as-data-source-after-v0-2.md`](architecture/decisions/0004-pmc-integration-as-data-source-after-v0-2.md)
-
-### PubMed Data Cleanup
-[`0005-pubmed-data-cleanup.md`](architecture/decisions/0005-pubmed-data-cleanup.md)
-
-### Python ORM
-[`0006-python-orm.md`](architecture/decisions/0006-python-orm.md)
-
-### Infrastructure as Code — CloudFormation over Terraform
-[`0007-cloudformation-over-terraform.md`](architecture/decisions/0007-cloudformation-over-terraform.md)
-
-### Compute — ECS Fargate over EC2 or Kubernetes
-[`0008-ecs-fargate-for-compute.md`](architecture/decisions/0008-ecs-fargate-for-compute.md)
-
-### Database Migrations — Liquibase
-[`0009-liquibase-for-db-migrations.md`](architecture/decisions/0009-liquibase-for-db-migrations.md)
-
-### Audit Strategy — Unified Audit Log Table
-[`0010-unified-audit-log.md`](architecture/decisions/0010-unified-audit-log.md)
-
-### Data Provenance — EuropePMC Ingestion Versioning
-[`0011-epmc-data-provenance.md`](architecture/decisions/0011-epmc-data-provenance.md)
-
-### Remove PubMed in Favour of EuropePMC
-[`0012-remove-pubmed-in-favour-of-europepmc.md`](architecture/decisions/0012-remove-pubmed-in-favour-of-europepmc.md)
