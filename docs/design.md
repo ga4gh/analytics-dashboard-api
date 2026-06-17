@@ -16,37 +16,35 @@ Data sources (will expand over time)
 
 The initial versions of the dashboard was based on Jupyter notebooks but to make it more accessible, the latest versions are web-based and available on the GA4GH domain. Regular ingestion of data from the sources ensure the analytics data and corresponding visualisations are up-to-date. 
 
-### Goals
 
 ## Architecture & System Design
 
 ### System Overview
 
-The GA4GH Analytics Dashboard is a two-service web application deployed on AWS using ECS Fargate. It consists of a Python/FastAPI backend that ingests and serves data from GitHub, PyPI, and EuropePMC, and a Python/Dash frontend that visualises that data for stakeholders. Both services run as Docker containers defined in their respective repositories and are provisioned through CloudFormation templates.
+The GA4GH Analytics Dashboard is a two-service web application deployed on GA4GH's cloud instance. AWS is the cloud provider and the deployments are managed through ECS Fargate. The dashboard application consists of a Python/FastAPI backend that ingests and serves data from the data sources, and a Python with [Plotly Dash](https://dash.plotly.com) frontend that visualises the data for community. Both services run as Docker containers defined in their respective repositories and are provisioned as well as managed through CloudFormation templates.
 
-Infrastructure is managed entirely through AWS CloudFormation. Database schema migrations are managed through Liquibase, which runs as a one-shot Fargate task before each backend deployment.
-
----
-
-## Infrastructure Components
-
-### Virtual Private Cloud (VPC)
-
-- A dedicated VPC provides network isolation for all resources.
 
 ---
 
-### Relational Database — Amazon RDS (PostgreSQL 17)
+### Infrastructure Components
 
-- A single Amazon RDS PostgreSQL 17 instance provides persistent storage for all application data. It is provisioned by the CloudFormation database stack and sits in the **private subnets**, unreachable from the internet.
+#### Virtual Private Cloud (VPC)
 
-**Database schema migrations** are managed by [Liquibase](https://www.liquibase.org/). On each deployment, a one-shot ECS Fargate task runs the `analytics-dashboard-liquibase` container, which applies any pending changesets from `liquibase/dbchangelog.xml` against the target database before the backend service is updated.
+A dedicated VPC provides network isolation for all resources of the dashboard and ensures appropriate management controls.
 
 ---
 
-### Container Registry — Amazon ECR
+#### Relational Database 
 
-Two ECR repositories store all Docker images built by CI:
+A single Amazon RDS (PostgreSQL) instance provides persistent storage for dashboard's data. As mentioned, the database stack is provisioned through CloudFormation templates and sits in the **private subnets** unreachable from the internet.
+
+Database schema migrations are managed by [Liquibase](https://www.liquibase.org/). On each deployment, a one-time ECS Fargate task runs the `analytics-dashboard-liquibase` container, which applies any pending changesets from `liquibase/dbchangelog.xml` against the target database before the backend service is updated.
+
+---
+
+#### Container Registry
+
+AWS ECR is used for the dashboard's images. Two ECR repositories store all Docker images built by CI:
 
 | Repository | Image | Built from |
 |---|---|---|
@@ -56,35 +54,35 @@ Two ECR repositories store all Docker images built by CI:
 
 Images are built for the `linux/arm64` platform (Graviton) to match the Fargate task architecture. Each CI run tags images with the git describe output, `latest`, and the environment name (`staging` or `prod`).
 
----
 
-### Compute — Amazon ECS (Fargate)
+
+#### Compute 
 
 An ECS cluster runs both application services as serverless Fargate tasks. No EC2 instances are managed. The CloudFormation ECS stack provisions:
 
-**Cluster**
+##### Cluster
 - One ECS cluster per environment (`analytics-staging` / `analytics-prod`)
 - Platform: `FARGATE` with Graviton (`ARM64`) CPU architecture
 
-**Backend Service — `analytics-dashboard`**
+##### Backend Service — `analytics-dashboard`
 - Container: `analytics-dashboard` image from ECR
 
-**Frontend Service — `analytics-dashboard-ui`**
+##### Frontend Service — `analytics-dashboard-ui`
 - Container: `analytics-dashboard-ui` image from ECR
 
-**Liquibase Migration Task (pre-deployment)**
+##### Liquibase Migration Task (pre-deployment)
 - Container: `analytics-dashboard-liquibase` image from ECR
 - Runs as a one-shot `run-task` call (not a long-running service)
 
----
 
-### Application Load Balancer (ALB)
+
+#### Application Load Balancer (ALB)
 
 A single internet-facing Application Load Balancer sits in the **public subnets** and routes traffic to the ECS services in the private subnets. The CloudFormation ALB stack provisions:
 
----
 
-### Logging — Amazon CloudWatch Logs
+
+#### Logging
 
 All ECS task output (stdout/stderr) is routed to CloudWatch Logs via the `awslogs` log driver. Log groups:
 
@@ -93,9 +91,11 @@ All ECS task output (stdout/stderr) is routed to CloudWatch Logs via the `awslog
 - `/ecs/analytics-liquibase/{env}` — migration task logs
 
 Log retention: 30 days (staging), 90 days (production).
----
 
-## CI/CD Pipeline(Work in progress - currently its a manual process and no production instance yet, will be implementing it soon)
+
+#### CI/CD Pipeline 
+> [!WARNING]
+> Work in progress - Currently, it's a manual process. Automated production instance will be implemented soon.
 
 Deployments will be fully automated through GitHub Actions. Pushing to a branch triggers the corresponding environment pipeline.
 
