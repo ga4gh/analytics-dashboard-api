@@ -1,4 +1,4 @@
-# EuropePMC Data Curation & Provenance
+# Europe PMC (EPMC) Data Curation & Provenance
 
 ## Design Proposal — GA4GH Analytics Dashboard
 
@@ -28,7 +28,7 @@ The core issue is not data freshness — it is **auditability, explainability, a
 # Current Process
 
 ```
-  EuropePMC API
+  Europe PMC API
        │
        ▼
   Pull all articles
@@ -72,7 +72,7 @@ The core issue is not data freshness — it is **auditability, explainability, a
 # Proposed Architecture
 
 ```
-  EuropePMC API
+  Europe PMC API
        │
        ▼
   ┌────────────────────────────────────────────────────────┐
@@ -133,7 +133,8 @@ A curator checks: _is this article genuinely relevant to GA4GH?_
  - **Approve** - Record promoted to production. Marked with `approved_by` and `approved_at`. 
  - **Reject** - Record stays in staging only. Rejection reason logged.
 
-> **Important:** A keyword match is not a relevance guarantee. All new records require human sign-off before reaching the dashboard.
+> [!IMPORTANT]
+> A keyword match is not a relevance guarantee. All new records require human sign-off before reaching the dashboard.
 
 ---
 
@@ -151,7 +152,7 @@ The ingestion audit records that the article was seen and unchanged. Nothing els
 
 A matching record exists in production. One or more fields differ.
 
-**Action: Compute the diff. Apply auto-approve rules(if any). Queue structural changes for human review.**
+**Action: Compute the diff. Apply auto-approve rules (if any). Queue structural changes for human review.**
 
 The diff is split into two categories(This will be changed based on stakeholders feedback - if no auto approve fields, every change will go through human review):
 - **Metric fields** - `cited_by_count`, additive flag changes (`N→Y` only) 
@@ -189,7 +190,7 @@ The curator makes one decision:
 
 ---
 
-# Preventing Re-surfaced Rejections — Known Divergences(Chen's Idea)
+# Preventing Re-surfaced Rejections — Known Divergences (Chen's Idea)
 
 **The problem:** If a curator rejects the change and decides to keep existing version, the next ingestion might detect same changes again and add it to review queue. This will need review again and a waste of time.
 
@@ -230,7 +231,7 @@ epmc_value does NOT match known_divergences (different value)
 
 ---
 
-# Auto-Approve Rules — v1(Jimmy mentioned this descision should come from stakeholders so will be updated or removed based on thier feedback)
+# Auto-Approve Rules — v1 (Jimmy mentioned this descision should come from stakeholders so will be updated or removed based on thier feedback)
 
 Certain low-risk changes are automatically approved without human review. These are included in v1.
 
@@ -339,7 +340,7 @@ Production holds only curated, approved data. No flags, no staging artefacts.
 - No `to_use` flag — every record in production is active by definition. There is only one version per article.
 - No `pmc_review` or `known_divergences` — these are staging-only concepts.
 
-**ER Diagram of new schema is available here(WIP)**
+**ER Diagram of new schema is available here (WIP)**
 ---
 
 # Matching Records Across Pulls using Stable Identifier
@@ -359,7 +360,7 @@ To compare a staged record against production, we need a stable identifier.
 A preprint (no ID, matched by DOI) later receives a ID.
 On the next pull it is matched by DOI. The status change (`preprint → published`) and any other field changes surface in the review queue. The curator approves. Lineage is preserved through the staging audit history. Subsequent matches will be done using `id`.
 
-**Edge case — unresolvable record(Rare case):**
+**Edge case — unresolvable record (Rare case):**
 A record with neither ID nor DOI is classified as `COMPARISON_UNRESOLVABLE`. It is flagged for manual handling and does not enter the review queue automatically.
 
 > **Open question:** Is there any record where neither id nor doi is present in current dataset?
@@ -406,7 +407,7 @@ This avoids the need for a review UI in v1 while still supporting non-technical 
 | Ingestion endpoint | No change. Same `POST /epmc/ingest-pmc-data` call. |
 | Existing production records | One-time migration: `approved_by = 'system'`, `approved_at = ingested_at` for all current records. Lineage starts from this point forward. |
 
-The change is entirely in the **pipeline between the EuropePMC API and the production database**.
+The change is entirely in the **pipeline between the Europe PMC API and the production database**.
 
 ---
 
@@ -481,6 +482,7 @@ The change is entirely in the **pipeline between the EuropePMC API and the produ
 | "How many new articles?" — unanswerable | Answered instantly from ingestion summary counts |
 | "Who approved this article?" — unanswerable | Answered from `approved_by` on the production record and `REVIEW_APPROVED` in the audit log |
 
+> [!IMPORTANT]
 > The staging area is the foundation. Automation, bulk approval, downstream analytics, and compliance reporting all become possible once this layer is in place.
 
 ---
