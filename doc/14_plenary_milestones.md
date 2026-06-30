@@ -60,12 +60,10 @@ GA4GH produces a lot of software spread across several GitHub organisations and 
 
 **Things to agree on before we start:**
 - Which organisations and repos are in scope
-- How to handle repos that span multiple workstreams
 - What to do when a repo moves org or gets renamed
 - Whether to include third-party implementations of GA4GH standards
 
 **In scope for plenary:**
-- Extended GitHub client to fetch across multiple organisations
 - Workstream mapping table
 - Dashboard additions: repo health cards, workstream tool overview
 
@@ -83,7 +81,7 @@ We currently have one staging environment (`analytics-staging.ga4gh.org`) but no
 
 **In scope for plenary:**
 - Production database provisioned
-- CloudFormation updated for dual-environment setup
+- CloudFormation updated for environment specific setup
 - Independent ECS services for staging and production
 - Domain routing and CI/CD pipeline
 
