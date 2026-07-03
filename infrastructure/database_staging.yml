@@ -1,0 +1,93 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Template for creating analytics dashboard security group
+
+Parameters:
+  StaticStackName:
+    Type: String
+    Default: analytics-dashboard
+  ParamDBName:
+    Type: String
+    Default: analytics_dashboard_staging
+  ParamUsername:
+    Type: String
+    Default: analytics_dashboard_writer
+
+
+Resources:
+
+  WebServerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable HTTP and SSH connection
+      GroupName: AnalyticsDashboardSecurityGroup
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8000
+          ToPort: 8000
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 3000
+          ToPort: 3000
+          CidrIp: 0.0.0.0/0
+  
+  DBPassword:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: AnalyticsDashboardStagingDBPassword
+      Description: Password for analytics_dashboard_staging db instance
+      GenerateSecretString:
+        ExcludeLowercase: false
+        ExcludeNumbers: false
+        ExcludePunctuation: true
+        ExcludeUppercase: false
+        IncludeSpace: false
+        PasswordLength: 64
+
+  Database:
+    Type: AWS::RDS::DBInstance
+    DependsOn:
+      - DBPassword
+      - WebServerSecurityGroup
+    Properties:
+      DBName: !Ref ParamDBName
+      DBInstanceClass: db.t3.micro
+      Engine: postgres
+      AllocatedStorage: "10"
+      BackupRetentionPeriod: 7
+      DeleteAutomatedBackups: false
+      PubliclyAccessible: true
+      MasterUsername: !Ref ParamUsername
+      MasterUserPassword: '{{resolve:secretsmanager:AnalyticsDashboardStagingDBPassword:SecretString}}'
+      VPCSecurityGroups:
+        - !GetAtt WebServerSecurityGroup.GroupId
+
+Outputs:
+  WebServerSGId:
+    Description: GroupId of the WebServer Security Group
+    Value: !GetAtt WebServerSecurityGroup.GroupId
+    Export:
+      Name: !Sub '${StaticStackName}-SGId'
+  DatabaseHost:
+    Description: Host Address of the Database
+    Value: !GetAtt Database.Endpoint.Address
+    Export:
+      Name: analytics-dashboard-staging-db
+  DatabasePort:
+    Description: Port of the Database
+    Value: !GetAtt Database.Endpoint.Port
+    Export:
+      Name: analytics-dashboard-staging-port
+
+
