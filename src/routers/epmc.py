@@ -3,9 +3,6 @@ from fastapi import APIRouter, HTTPException, Depends, Body
 from sqlalchemy.orm import Session
 import json
 from datetime import datetime, timezone
-
-logger = logging.getLogger(__name__)
-
 from src.models.pmc_article import PMCArticle, PMCArticleCustom, PMCArticleFull, PMCArticleListCustomResponse
 from src.models.pmc_author import PMCAuthor
 from src.models.citation import Citation as CitationModel, CitationList, TotalCitations
@@ -14,8 +11,9 @@ from src.repositories.epmc import EPMCRepo as EPMCRepo
 from src.services.grant import GrantService as Grant
 from src.config.session import get_session
 
-router = APIRouter(prefix="/epmc", tags=["Articles"])
 
+logger = logging.getLogger(__name__)
+router = APIRouter(prefix="/epmc", tags=["Articles"])
 
 def get_epmc_repo(db: Session = Depends(get_session)) -> EPMCRepo:
     return EPMCRepo(db)
