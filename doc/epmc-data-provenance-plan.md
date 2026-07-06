@@ -57,7 +57,7 @@ The core issue is not data freshness — it is **auditability, explainability, a
 2. Audit trail - **missing**
      - Record of what, when, who changed and approved it
 3. Curation layer - **missing**
-     - Humar review before changes surfaced on dashboard
+     - Human review before changes surfaced on dashboard
 4. Separate instance for staging and production - **partially missing**
      - DB instances
           1. Staging db - **already have**
@@ -154,7 +154,7 @@ A matching record exists in production. One or more fields differ.
 
 **Action: Compute the diff. Apply auto-approve rules (if any). Queue structural changes for human review.**
 
-The diff is split into two categories(This will be changed based on stakeholders feedback - if no auto approve fields, every change will go through human review):
+The diff is split into two categories (This will be changed based on stakeholders feedback - if no auto approve fields, every change will go through human review):
 - **Metric fields** - `cited_by_count`, additive flag changes (`N→Y` only) 
      - **Action** → Auto-approved — low risk, no human needed
 - **Structural fields** - `title`, `abstract_text`, `publication_status`, `authors`, `affiliations`, `doi`, and all other fields 
@@ -192,7 +192,7 @@ The curator makes one decision:
 
 # Preventing Re-surfaced Rejections — Known Divergences (Chen's Idea)
 
-**The problem:** If a curator rejects the change and decides to keep existing version, the next ingestion might detect same changes again and add it to review queue. This will need review again and a waste of time.
+**The problem:** If a curator rejects the change and decides to keep existing version, the next ingestion might detect same changes again and add it to review queue. This will require another review and waste time.
 
 **The solution:** `known_divergences` table.
 
@@ -378,7 +378,7 @@ A record with neither ID nor DOI is classified as `COMPARISON_UNRESOLVABLE`. It 
 
 
 **Reserved for later: Two-step approval.**
-- Reviewer do record-by-record review
+- Reviewer does record-by-record review
 - Second reviewer does a final sign off
 - This could be managed by a flag, no complicated schema changes needed
 
