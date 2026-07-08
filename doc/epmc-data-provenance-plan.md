@@ -39,7 +39,7 @@ The core issue is not data freshness — it is **auditability, explainability, a
   (all records, every run)
        │
        ▼
-  Dashboard (live query)
+   Dashboard
 ```
 
 **Limitations:**
@@ -116,7 +116,7 @@ The core issue is not data freshness — it is **auditability, explainability, a
              └───────────────────────────┘
                          │
                          ▼
-                  Dashboard / API
+                     Dashboard
 ```
 
 ---
