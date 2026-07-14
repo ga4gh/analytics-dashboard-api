@@ -5,48 +5,38 @@ Parameters:
   StaticStackName:
     Type: String
     Default: analytics-dashboard
+  Environment:
+    Type: String
+    Default: staging
+    AllowedValues:
+      - staging
+      - production
   UIPort:
     Type: String
     Default: 8050
   FrontEndImage:
     Type: String
-    Default: 282236276875.dkr.ecr.us-east-2.amazonaws.com/analytics-dashboard-ui:latest
   ApiBaseUrl:
     Type: String
-    Default: http://AnalyticsDashboardAlbBalancer-1386294349.us-east-2.elb.amazonaws.com:8000
   VpcId:
     Type: String
-    Default: vpc-0d772394df78b1311
   SubnetA:
     Type: String
-    Default: subnet-0be7a1fb3a96191b4
   SubnetB:
     Type: String
-    Default: subnet-0c465ec61b98bffac
   SubnetC:
     Type: String
-    Default: subnet-07b0e79f4d9bbf9d0
-  AnalyticsLG:
-    Type: String
-    Default: AnalyticsLG
   Region:
     Type: String
-    Default: us-east-2
   Prefix:
     Type: String
     Default: ecs
   ExecutionRole:
     Type: String
-    Default: arn:aws:iam::282236276875:role/ECSFargateExecutionRole-TT
-  DevelopmentEnvironment:
+  ClusterName:
     Type: String
-    Default: Development
-  BasePort:
-    Type: String
-    Default: 8050
   CertificateArn:
     Type: String
-    Default: arn:aws:acm:us-east-2:282236276875:certificate/ae6d656e-a776-4391-932c-24b3aa4d0c4c
 
 Resources:
   ALBSecurityGroup:
@@ -60,10 +50,6 @@ Resources:
           ToPort: 80
           CidrIp: 0.0.0.0/0
         - IpProtocol: tcp
-          FromPort: 8050
-          ToPort: 8050
-          CidrIp: 0.0.0.0/0
-        - IpProtocol: tcp
           FromPort: 443
           ToPort: 443
           CidrIp: 0.0.0.0/0
@@ -71,7 +57,7 @@ Resources:
   ALB:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
-      Name: AnalyticsDashboardNEWFEALB
+      Name: !Sub "${StaticStackName}-${Environment}-fe-alb"
       Type: application
       Scheme: internet-facing
       IpAddressType: ipv4
@@ -85,7 +71,7 @@ Resources:
   TargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      Name: AnalyticsNEWFETargetGroup
+      Name: !Sub "${StaticStackName}-${Environment}-fe-tg"
       TargetType: ip
       Protocol: HTTP
       Port: !Ref UIPort
@@ -133,7 +119,7 @@ Resources:
   ECSCluster:
     Type: AWS::ECS::Cluster
     Properties:
-      ClusterName: analytics-new-ui-cluster
+      ClusterName: !Ref ClusterName
 
   ECSTaskSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -142,8 +128,8 @@ Resources:
       VpcId: !Ref VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
-          FromPort: 8050
-          ToPort: 8050
+          FromPort: !Ref UIPort
+          ToPort: !Ref UIPort
           SourceSecurityGroupId: !Ref ALBSecurityGroup
       SecurityGroupEgress:
         - IpProtocol: -1
@@ -160,14 +146,13 @@ Resources:
       LaunchType: FARGATE
       DesiredCount: 1
       HealthCheckGracePeriodSeconds: 120
-      ServiceName: analytics-new-fe-service
+      ServiceName: !Sub "${StaticStackName}-${Environment}-fe-service"
       TaskDefinition: !Ref ECSFrontEndTaskDefinition
       NetworkConfiguration:
         AwsvpcConfiguration:
           AssignPublicIp: ENABLED
           SecurityGroups:
-            - !ImportValue
-              Fn::Sub: ${StaticStackName}-SGId
+            - Fn::ImportValue: !Sub "${StaticStackName}-${Environment}-SGId"
             - !Ref ECSTaskSecurityGroup
           Subnets:
             - !Ref SubnetA
@@ -175,7 +160,7 @@ Resources:
             - !Ref SubnetC
       LoadBalancers:
         - TargetGroupArn: !Ref TargetGroup
-          ContainerName: analytics-new-ui-container
+          ContainerName: !Sub "${StaticStackName}-${Environment}-fe-container"
           ContainerPort: !Ref UIPort
 
   ECSFrontEndTaskDefinition:
@@ -187,8 +172,11 @@ Resources:
       ExecutionRoleArn: !Ref ExecutionRole
       RequiresCompatibilities:
         - FARGATE
+      RuntimePlatform:
+        CpuArchitecture: ARM64
+        OperatingSystemFamily: LINUX
       ContainerDefinitions:
-        - Name: analytics-new-ui-container
+        - Name: !Sub "${StaticStackName}-${Environment}-fe-container"
           Image: !Ref FrontEndImage
           Environment:
             - Name: GA4GH_ANALYTICS_DASHBOARD_API_BASE_URL
@@ -198,10 +186,10 @@ Resources:
           LogConfiguration:
             LogDriver: awslogs
             Options:
-              awslogs-group: !Ref AnalyticsLG
+              awslogs-group:
+                Fn::ImportValue: !Sub "${StaticStackName}-${Environment}-frontend-logs"
               awslogs-region: !Ref Region
               awslogs-stream-prefix: !Ref Prefix
-
           PortMappings:
             - ContainerPort: !Ref UIPort
 

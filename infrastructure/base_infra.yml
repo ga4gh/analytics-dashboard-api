@@ -1,0 +1,150 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Template for creating analytics dashboard security group
+
+Parameters:
+  StaticStackName:
+    Type: String
+    Default: analytics-dashboard
+  Environment:
+    Type: String
+    Default: staging
+    AllowedValues:
+      - staging
+      - production
+  VpcId:
+    Type: String
+  VpcCidr:
+    Type: String
+    Description: CIDR block of the VPC, used to restrict DB access to internal traffic only
+  SubnetA:
+    Type: String
+  SubnetB:
+    Type: String
+  SubnetC:
+    Type: String
+  ParamDBName:
+    Type: String
+  ParamUsername:
+    Type: String
+  PubliclyAccessible:
+    Type: String
+    Default: "true"
+    AllowedValues:
+      - "true"
+      - "false"
+  BackupRetentionPeriod:
+    Type: Number
+    Default: 7
+
+
+Resources:
+
+  WebServerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable HTTP and SSH connection
+      GroupName: !Sub "${StaticStackName}-${Environment}-SG"
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8000
+          ToPort: 8000
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrIp: !Ref VpcCidr
+        - IpProtocol: tcp
+          FromPort: 3000
+          ToPort: 3000
+          CidrIp: 0.0.0.0/0
+
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: !Sub "Subnet group for ${StaticStackName} ${Environment} RDS"
+      SubnetIds:
+        - !Ref SubnetA
+        - !Ref SubnetB
+        - !Ref SubnetC
+  
+  DBPassword:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub "${StaticStackName}-${Environment}-DBPassword"
+      Description: !Sub "Password for ${StaticStackName} ${Environment} db instance"
+      GenerateSecretString:
+        ExcludeLowercase: false
+        ExcludeNumbers: false
+        ExcludePunctuation: true
+        ExcludeUppercase: false
+        IncludeSpace: false
+        PasswordLength: 64
+
+  Database:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Snapshot
+    DependsOn:
+      - DBPassword
+      - WebServerSecurityGroup
+      - DBSubnetGroup
+    Properties:
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      DBName: !Ref ParamDBName
+      DBInstanceClass: db.t3.micro
+      Engine: postgres
+      AllocatedStorage: "10"
+      BackupRetentionPeriod: !Ref BackupRetentionPeriod
+      DeleteAutomatedBackups: false
+      PubliclyAccessible: !Ref PubliclyAccessible
+      MasterUsername: !Ref ParamUsername
+      MasterUserPassword: !Sub '{{resolve:secretsmanager:${StaticStackName}-${Environment}-DBPassword:SecretString}}'
+      VPCSecurityGroups:
+        - !GetAtt WebServerSecurityGroup.GroupId
+
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Sub "${StaticStackName}-${Environment}-cluster"
+
+  BackendLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Retain
+    Properties:
+      LogGroupName: !Sub "/${StaticStackName}/${Environment}/backend"
+      RetentionInDays: 30
+
+  FrontendLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Retain
+    Properties:
+      LogGroupName: !Sub "/${StaticStackName}/${Environment}/frontend"
+      RetentionInDays: 30
+
+Outputs:
+  WebServerSGId:
+    Description: GroupId of the WebServer Security Group
+    Value: !GetAtt WebServerSecurityGroup.GroupId
+    Export:
+      Name: !Sub "${StaticStackName}-${Environment}-SGId"
+  ECSClusterName:
+    Description: Name of the ECS Cluster
+    Value: !Ref ECSCluster
+    Export:
+      Name: !Sub "${StaticStackName}-${Environment}-cluster"
+  BackendLogGroupName:
+    Description: CloudWatch log group for backend and migrations
+    Value: !Ref BackendLogGroup
+    Export:
+      Name: !Sub "${StaticStackName}-${Environment}-backend-logs"
+  FrontendLogGroupName:
+    Description: CloudWatch log group for frontend
+    Value: !Ref FrontendLogGroup
+    Export:
+      Name: !Sub "${StaticStackName}-${Environment}-frontend-logs"
+
+

@@ -1,10 +1,16 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: Template fot analytics dashboard staging Environment
+Description: Template for analytics dashboard backend deployment on AWS ECS Fargate
 
 Parameters:
   StaticStackName:
     Type: String
     Default: analytics-dashboard
+  Environment:
+    Type: String
+    Default: staging
+    AllowedValues:
+      - staging
+      - production
   HostPort:
     Type: String
     Default: 8000
@@ -13,67 +19,44 @@ Parameters:
     Default: 8000
   ApiImage:
     Type: String
-    Default: 282236276875.dkr.ecr.us-east-2.amazonaws.com/analytics-dashboard:latest
   VpcId:
     Type: String
-    Default: vpc-0d772394df78b1311
   SubnetA:
     Type: String
-    Default: subnet-0be7a1fb3a96191b4
   SubnetB:
     Type: String
-    Default: subnet-0c465ec61b98bffac
   SubnetC:
     Type: String
-    Default: subnet-07b0e79f4d9bbf9d0
   DBURL:
     Type: String
-    Default: postgresql://analytics_staging:%23%23R%29n%26oN%5Ba2%2B%3D%7D%3ENWCNK@analytics-staging.c0q4keadjybw.us-east-2.rds.amazonaws.com:5432/analytics
     NoEcho: true
-  AnalyticsDashboardLG:
-    Type: String
-    Default: AnalyticsDashboardLG
   Region:
     Type: String
-    Default: us-east-2
   Prefix:
     Type: String
     Default: ecs
   ExecutionRole:
     Type: String
-    Default: arn:aws:iam::282236276875:role/ECSFargateExecutionRole-TT
-  LiquibaseImage:
-    Type: String
-    Default: 282236276875.dkr.ecr.us-east-2.amazonaws.com/analytics-dashboard-liquibase:latest
-  LiquibaseJdbcUrl:
-    Type: String
-    Default: jdbc:postgresql://analytics-staging.c0q4keadjybw.us-east-2.rds.amazonaws.com:5432/analytics?sslmode=require
-  LiquibaseDbUsername:
-    Type: String
-    Default: analytics_staging
-  LiquibaseDbPassword:
-    Type: String
-    NoEcho: true
 
 Resources:
 
   ALBBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
-      Name: AnalyticsDashboardAlbBalancer
+      Name: !Sub "${StaticStackName}-${Environment}-backend-alb"
+      Scheme: internet-facing
       Subnets:
         - Ref: SubnetA
         - Ref: SubnetB
         - Ref: SubnetC
       Type: application
       SecurityGroups:
-        - Fn::ImportValue:
-            !Sub "${StaticStackName}-SGId"
+        - Fn::ImportValue: !Sub "${StaticStackName}-${Environment}-SGId"
 
   ALBTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      Name: AnalyticsDashboardALBTargetGroup
+      Name: !Sub "${StaticStackName}-${Environment}-backend-tg"
       VpcId:
         Ref: VpcId
       Protocol: HTTP
@@ -102,22 +85,16 @@ Resources:
         Ref: HostPort
       Protocol: HTTP
 
-  ECSCluster:
-    Type: AWS::ECS::Cluster
-    Properties:
-      ClusterName: analytics-dashboard-cluster
-
   ECSService:
     Type: AWS::ECS::Service
     DependsOn: [
-      ECSCluster,
       ECSTaskDefinition,
       ALBListener,
       ALBTargetGroup
     ]
     Properties:
       Cluster:
-        Ref: ECSCluster
+        Fn::ImportValue: !Sub "${StaticStackName}-${Environment}-cluster"
       LaunchType: FARGATE
       DesiredCount: 1
       HealthCheckGracePeriodSeconds: 120
@@ -125,19 +102,18 @@ Resources:
         AwsvpcConfiguration:
           AssignPublicIp: ENABLED
           SecurityGroups:
-            - Fn::ImportValue:
-                !Sub "${StaticStackName}-SGId"
+            - Fn::ImportValue: !Sub "${StaticStackName}-${Environment}-SGId"
           Subnets:
             - Ref: SubnetA
             - Ref: SubnetB
             - Ref: SubnetC
-      ServiceName: analytics-dashboard-backend-service
+      ServiceName: !Sub "${StaticStackName}-${Environment}-backend-service"
       TaskDefinition:
         Ref: ECSTaskDefinition
       LoadBalancers:
         - TargetGroupArn:
             Ref: ALBTargetGroup
-          ContainerName: analytics-dashboard-container
+          ContainerName: !Sub "${StaticStackName}-${Environment}-container"
           ContainerPort:
             Ref: ParamContainerPort
 
@@ -154,12 +130,13 @@ Resources:
         CpuArchitecture: ARM64
         OperatingSystemFamily: LINUX
       ContainerDefinitions:
-        - Name: analytics-dashboard-container
+        - Name: !Sub "${StaticStackName}-${Environment}-container"
           Image: !Ref ApiImage
           LogConfiguration:
             LogDriver: awslogs
             Options:
-              awslogs-group: !Ref AnalyticsDashboardLG
+              awslogs-group:
+                Fn::ImportValue: !Sub "${StaticStackName}-${Environment}-backend-logs"
               awslogs-region: !Ref Region
               awslogs-stream-prefix: !Ref Prefix
           Environment:
@@ -169,33 +146,7 @@ Resources:
             - ContainerPort: !Ref ParamContainerPort
               HostPort: !Ref HostPort
 
-  LiquibaseTaskDefinition:
-    Type: AWS::ECS::TaskDefinition
-    Properties:
-      Family: analytics-dashboard-liquibase-task
-      Cpu: 512
-      Memory: 1024
-      NetworkMode: awsvpc
-      ExecutionRoleArn: !Ref ExecutionRole
-      RequiresCompatibilities:
-        - FARGATE
-      RuntimePlatform:
-        CpuArchitecture: ARM64
-        OperatingSystemFamily: LINUX
-      ContainerDefinitions:
-        - Name: analytics-dashboard-liquibase-container
-          Image: !Ref LiquibaseImage
-          Essential: true
-          LogConfiguration:
-            LogDriver: awslogs
-            Options:
-              awslogs-group: !Ref AnalyticsDashboardLG
-              awslogs-region: !Ref Region
-              awslogs-stream-prefix: liquibase
-          Environment:
-            - Name: LIQUIBASE_COMMAND_URL
-              Value: !Ref LiquibaseJdbcUrl
-            - Name: LIQUIBASE_COMMAND_USERNAME
-              Value: !Ref LiquibaseDbUsername
-            - Name: LIQUIBASE_COMMAND_PASSWORD
-              Value: !Ref LiquibaseDbPassword
+Outputs:
+  ALBDNSName:
+    Description: DNS name of the Application Load Balancer
+    Value: !GetAtt ALBBalancer.DNSName
