@@ -1,0 +1,93 @@
+Staging
+
+Step 1:
+Base Infra: One time run to initialize DB instance, DB Password, Log groups, ECS Cluster
+To rerun: Delete existing template and execute
+aws cloudformation deploy \               
+  --template-file base_infra.yml \               
+  --stack-name analytics-dashboard-staging-base \
+  --region us-east-2 \
+  --parameter-overrides \
+    Environment=staging \
+    ParamDBName=analytics_dashboard_staging_db \
+    ParamUsername=analytics_dashboard_staging_user \
+    PubliclyAccessible=true \
+    BackupRetentionPeriod=30 \
+    VpcId=vpc-01c8c42ad7cf34b4b \
+    VpcCidr=10.0.0.0/16 \
+    SubnetA=subnet-0f26c31e6c9578717 \
+    SubnetB=subnet-00663ce89eb47404f \
+    SubnetC=subnet-08b697026fc4502e5
+
+Step 2:
+Migrations
+1. Create migration scripts
+  - Enums
+  PGPASSWORD=$DB_PASS PGSSLMODE=require PGGSSENCMODE=disable psql \
+  -h analytics-staging.c0q4keadjybw.us-east-2.rds.amazonaws.com \
+  -p 5432 -U analytics_staging -d analytics -At \
+  -c "SELECT 'CREATE TYPE ' || t.typname || ' AS ENUM (' || string_agg(quote_literal(e.enumlabel), ', ' ORDER BY e.enumsortorder) || ');' FROM pg_type t JOIN pg_enum e ON t.oid = e.enumtypid WHERE t.typnamespace = 'public'::regnamespace GROUP BY t.typname;" \
+  > /Users/dashrath/Documents/GA4GH/Analytics/analytics-dashboard/liquibase/schema.sql
+  
+  - Functions
+  PGPASSWORD=$DB_PASS PGSSLMODE=require PGGSSENCMODE=disable psql \
+  -h analytics-staging.c0q4keadjybw.us-east-2.rds.amazonaws.com \
+  -p 5432 -U analytics_staging -d analytics -At \
+  -c "SELECT pg_get_functiondef(p.oid) || ';' FROM pg_proc p JOIN pg_namespace n ON p.pronamespace = n.oid WHERE n.nspname = 'public';" \
+  >> /Users/dashrath/Documents/GA4GH/Analytics/analytics-dashboard/liquibase/schema.sql
+  
+  - Triggers
+  PGPASSWORD=$DB_PASS PGSSLMODE=require PGGSSENCMODE=disable psql \
+  -h analytics-staging.c0q4keadjybw.us-east-2.rds.amazonaws.com \
+  -p 5432 -U analytics_staging -d analytics -At \
+  -c "SELECT pg_get_triggerdef(oid) || ';' FROM pg_trigger WHERE NOT tgisinternal;" \
+  >> /Users/dashrath/Documents/GA4GH/Analytics/analytics-dashboard/liquibase/schema.sql
+
+  - Changelog
+  liquibase generate-changelog \
+  --driver=org.postgresql.Driver \
+  --classpath=/Users/dashrath/postgresql.jar \
+  --url=jdbc:postgresql://analytics-staging.c0q4keadjybw.us-east-2.rds.amazonaws.com:5432/analytics \
+  --username=analytics_staging \
+  --password=$DB_PASS \
+  --changelog-file=/Users/dashrath/Documents/GA4GH/Analytics/analytics-dashboard/liquibase/dbchangelog.xml
+
+2. Deploy migration stack
+aws cloudformation deploy \
+  --template-file infrastructure/migrations.yml \
+  --stack-name analytics-dashboard-staging-migrations \
+  --region us-east-2 \
+  --parameter-overrides \
+    Environment=staging \
+    LiquibaseImage=282236276875.dkr.ecr.us-east-2.amazonaws.com/analytics-dashboard-liquibase:latest \
+    LiquibaseJdbcUrl=jdbc:postgresql://analytics-dashboard-staging-base-database-verhcap8spla.c0q4keadjybw.us-east-2.rds.amazonaws.com:5432/analytics_dashboard_staging \
+    LiquibaseDbUsername=analytics_dashboard_writer \
+    DBSecretArn=arn:aws:secretsmanager:us-east-2:282236276875:secret:analytics-dashboard-staging-DBPassword-hRcuSI \
+    ExecutionRole=arn:aws:iam::282236276875:role/ECSFargateExecutionRole-TT \
+    Region=us-east-2
+
+3. Run migration stack
+  aws ecs run-task \
+  --cluster analytics-dashboard-staging-cluster \
+  --task-definition analytics-dashboard-staging-liquibase \
+  --launch-type FARGATE \
+  --network-configuration "awsvpcConfiguration={subnets=[subnet-0be7a1fb3a96191b4,subnet-0c465ec61b98bffac,subnet-07b0e79f4d9bbf9d0],securityGroups=[<SG_ID_FROM_BASE_INFRA_OUTPUTS>],assignPublicIp=ENABLED}" \
+  --region us-east-2
+
+  4. Check status
+  aws ecs describe-tasks \
+  --cluster analytics-dashboard-staging-cluster \
+  --tasks <TASK_ARN> \
+  --region us-east-2 \
+  --query "tasks[0].containers[0].{Status:lastStatus,ExitCode:exitCode,Reason:reason}"
+
+  5. Check logs
+  aws logs tail /analytics-dashboard/staging/backend --follow --region us-east-2
+
+Command to run diagnostics for erros on AWS
+aws cloudformation describe-stack-events \
+  --stack-name analytics-dashboard-staging-base \
+  --region us-east-2 \
+  --query "StackEvents[?contains(ResourceStatus, 'FAILED')].{Resource:LogicalResourceId,Status:ResourceStatus,Reason:ResourceStatusReason,Time:Timestamp}" \    
+  --output table  
+

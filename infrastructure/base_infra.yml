@@ -59,6 +59,10 @@ Resources:
           ToPort: 5432
           CidrIp: !Ref VpcCidr
         - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          SourcePrefixListId: pl-075eab34a5b428114
+        - IpProtocol: tcp
           FromPort: 3000
           ToPort: 3000
           CidrIp: 0.0.0.0/0
