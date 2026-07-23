@@ -1,0 +1,51 @@
+{
+  "base_infra": [
+    { "ParameterKey": "StaticStackName",       "ParameterValue": "analytics-dashboard" },
+    { "ParameterKey": "Environment",           "ParameterValue": "staging" },
+    { "ParameterKey": "VpcId",                 "ParameterValue": "vpc-0d772394df78b1311" },
+    { "ParameterKey": "VpcCidr",               "ParameterValue": "REPLACE_WITH_VPC_CIDR" },
+    { "ParameterKey": "SubnetA",               "ParameterValue": "subnet-0be7a1fb3a96191b4" },
+    { "ParameterKey": "SubnetB",               "ParameterValue": "subnet-0c465ec61b98bffac" },
+    { "ParameterKey": "SubnetC",               "ParameterValue": "subnet-07b0e79f4d9bbf9d0" },
+    { "ParameterKey": "ParamDBName",           "ParameterValue": "analytics_dashboard_staging" },
+    { "ParameterKey": "ParamUsername",         "ParameterValue": "analytics_dashboard_writer" },
+    { "ParameterKey": "PubliclyAccessible",    "ParameterValue": "true" },
+    { "ParameterKey": "BackupRetentionPeriod", "ParameterValue": "7" }
+  ],
+  "migrations": [
+    { "ParameterKey": "StaticStackName",      "ParameterValue": "analytics-dashboard" },
+    { "ParameterKey": "Environment",          "ParameterValue": "staging" },
+    { "ParameterKey": "LiquibaseImage",       "ParameterValue": "282236276875.dkr.ecr.us-east-2.amazonaws.com/analytics-dashboard-liquibase:latest" },
+    { "ParameterKey": "LiquibaseJdbcUrl",     "ParameterValue": "jdbc:postgresql://REPLACE_WITH_DB_HOST:5432/analytics_dashboard_staging" },
+    { "ParameterKey": "LiquibaseDbUsername",  "ParameterValue": "analytics_dashboard_writer" },
+    { "ParameterKey": "DBSecretArn",          "ParameterValue": "REPLACE_WITH_SECRET_ARN" },
+    { "ParameterKey": "ExecutionRole",        "ParameterValue": "arn:aws:iam::282236276875:role/ECSFargateExecutionRole-TT" },
+    { "ParameterKey": "Region",               "ParameterValue": "us-east-2" }
+  ],
+  "backend": [
+    { "ParameterKey": "StaticStackName",      "ParameterValue": "analytics-dashboard" },
+    { "ParameterKey": "Environment",          "ParameterValue": "staging" },
+    { "ParameterKey": "ApiImage",             "ParameterValue": "282236276875.dkr.ecr.us-east-2.amazonaws.com/analytics-dashboard:latest" },
+    { "ParameterKey": "VpcId",               "ParameterValue": "vpc-0d772394df78b1311" },
+    { "ParameterKey": "SubnetA",             "ParameterValue": "subnet-0be7a1fb3a96191b4" },
+    { "ParameterKey": "SubnetB",             "ParameterValue": "subnet-0c465ec61b98bffac" },
+    { "ParameterKey": "SubnetC",             "ParameterValue": "subnet-07b0e79f4d9bbf9d0" },
+    { "ParameterKey": "ExecutionRole",       "ParameterValue": "arn:aws:iam::282236276875:role/ECSFargateExecutionRole-TT" },
+    { "ParameterKey": "Region",              "ParameterValue": "us-east-2" },
+    { "ParameterKey": "DBURL",               "ParameterValue": "postgresql://analytics_dashboard_writer:REPLACE_WITH_PASSWORD@REPLACE_WITH_DB_HOST:5432/analytics_dashboard_staging" }
+  ],
+  "frontend": [
+    { "ParameterKey": "StaticStackName",  "ParameterValue": "analytics-dashboard" },
+    { "ParameterKey": "Environment",      "ParameterValue": "staging" },
+    { "ParameterKey": "FrontEndImage",    "ParameterValue": "282236276875.dkr.ecr.us-east-2.amazonaws.com/analytics-dashboard-ui:latest" },
+    { "ParameterKey": "ApiBaseUrl",       "ParameterValue": "REPLACE_WITH_BACKEND_ALB_DNS" },
+    { "ParameterKey": "VpcId",            "ParameterValue": "vpc-0d772394df78b1311" },
+    { "ParameterKey": "SubnetA",          "ParameterValue": "subnet-0be7a1fb3a96191b4" },
+    { "ParameterKey": "SubnetB",          "ParameterValue": "subnet-0c465ec61b98bffac" },
+    { "ParameterKey": "SubnetC",          "ParameterValue": "subnet-07b0e79f4d9bbf9d0" },
+    { "ParameterKey": "ExecutionRole",    "ParameterValue": "arn:aws:iam::282236276875:role/ECSFargateExecutionRole-TT" },
+    { "ParameterKey": "Region",           "ParameterValue": "us-east-2" },
+    { "ParameterKey": "ClusterName",      "ParameterValue": "analytics-dashboard-staging-ui-cluster" },
+    { "ParameterKey": "CertificateArn",   "ParameterValue": "arn:aws:acm:us-east-2:282236276875:certificate/ae6d656e-a776-4391-932c-24b3aa4d0c4c" }
+  ]
+}

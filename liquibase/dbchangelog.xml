@@ -3,10 +3,9 @@
     <changeSet author="dashrath" id="0-custom-types">
         <sqlFile path="schema.sql" relativeToChangelogFile="true"/>
     </changeSet>
-
-    <changeSet author="dashrath (generated)" id="1784030096040-1">
+    <changeSet author="dashrath (generated)" id="1784803951223-1">
         <createTable tableName="pypi">
-            <column autoIncrement="true" name="id" startWith="216" type="INTEGER">
+            <column autoIncrement="true" name="id" type="INTEGER">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="pypi_pkey"/>
             </column>
             <column name="record_id" type="INTEGER">
@@ -55,7 +54,7 @@
             <column name="category" type="VARCHAR"/>
         </createTable>
     </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-2">
+    <changeSet author="dashrath (generated)" id="1784803951223-2">
         <createTable tableName="pypi_versions">
             <column name="id" type="INTEGER">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="pypi_versions_pkey"/>
@@ -87,9 +86,9 @@
             </column>
         </createTable>
     </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-3">
+    <changeSet author="dashrath (generated)" id="1784803951223-3">
         <createTable tableName="github_repos">
-            <column autoIncrement="true" name="id" startWith="35" type="INTEGER">
+            <column autoIncrement="true" name="id" type="INTEGER">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="github_repos_pkey"/>
             </column>
             <column name="record_id" type="INTEGER">
@@ -168,7 +167,7 @@
             <column name="status" type="VARCHAR(32)"/>
         </createTable>
     </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-4">
+    <changeSet author="dashrath (generated)" id="1784803951223-4">
         <createTable tableName="github_archieved_stats">
             <column autoIncrement="true" name="id" type="BIGINT">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="github_archieved_stats_pkey"/>
@@ -216,9 +215,9 @@
             </column>
         </createTable>
     </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-5">
+    <changeSet author="dashrath (generated)" id="1784803951223-5">
         <createTable tableName="pmc_articles">
-            <column autoIncrement="true" name="id" startWith="13879" type="INTEGER">
+            <column autoIncrement="true" name="id" type="INTEGER">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="pmc_articles_pkey"/>
             </column>
             <column name="record_id" type="INTEGER">
@@ -303,9 +302,9 @@
             <column name="approved_at" type="TIMESTAMP WITH TIME ZONE"/>
         </createTable>
     </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-6">
+    <changeSet author="dashrath (generated)" id="1784803951223-6">
         <createTable tableName="pmc_authors">
-            <column autoIncrement="true" name="id" startWith="80738" type="INTEGER">
+            <column autoIncrement="true" name="id" type="INTEGER">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="pmc_authors_pkey"/>
             </column>
             <column name="fullname" type="TEXT">
@@ -333,9 +332,9 @@
             <column name="ingestion_id" type="INTEGER"/>
         </createTable>
     </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-7">
+    <changeSet author="dashrath (generated)" id="1784803951223-7">
         <createTable tableName="pmc_affiliations">
-            <column autoIncrement="true" name="id" startWith="96917" type="INTEGER">
+            <column autoIncrement="true" name="id" type="INTEGER">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="pmc_affiliations_pkey"/>
             </column>
             <column name="author_id" type="INTEGER">
@@ -366,9 +365,9 @@
             <column name="ingestion_id" type="INTEGER"/>
         </createTable>
     </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-8">
+    <changeSet author="dashrath (generated)" id="1784803951223-8">
         <createTable tableName="articles_authors">
-            <column autoIncrement="true" name="id" startWith="157018" type="INTEGER">
+            <column autoIncrement="true" name="id" type="INTEGER">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="articles_authors_pkey"/>
             </column>
             <column name="article_id" type="INTEGER">
@@ -396,9 +395,9 @@
             <column name="ingestion_id" type="INTEGER"/>
         </createTable>
     </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-9">
+    <changeSet author="dashrath (generated)" id="1784803951223-9">
         <createTable tableName="grants">
-            <column autoIncrement="true" name="id" startWith="52265" type="INTEGER">
+            <column autoIncrement="true" name="id" type="INTEGER">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="grants_pkey"/>
             </column>
             <column name="record_id" type="INTEGER">
@@ -436,9 +435,9 @@
             <column name="ingestion_id" type="INTEGER"/>
         </createTable>
     </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-10">
+    <changeSet author="dashrath (generated)" id="1784803951223-10">
         <createTable tableName="fulltexts">
-            <column autoIncrement="true" name="id" startWith="46765" type="INTEGER">
+            <column autoIncrement="true" name="id" type="INTEGER">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="fulltexts_pkey"/>
             </column>
             <column name="article_id" type="INTEGER">
@@ -467,9 +466,9 @@
             <column name="ingestion_id" type="INTEGER"/>
         </createTable>
     </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-11">
+    <changeSet author="dashrath (generated)" id="1784803951223-11">
         <createTable tableName="citations">
-            <column autoIncrement="true" name="id" startWith="450167" type="INTEGER">
+            <column autoIncrement="true" name="id" type="INTEGER">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="citations_pkey"/>
             </column>
             <column name="article_id" type="INTEGER">
@@ -500,9 +499,9 @@
             <column name="ingestion_id" type="INTEGER"/>
         </createTable>
     </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-12">
+    <changeSet author="dashrath (generated)" id="1784803951223-12">
         <createTable tableName="pmc_references">
-            <column autoIncrement="true" name="id" startWith="492723" type="INTEGER">
+            <column autoIncrement="true" name="id" type="INTEGER">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="pmc_references_pkey"/>
             </column>
             <column name="article_id" type="INTEGER">
@@ -536,9 +535,9 @@
             <column name="ingestion_id" type="INTEGER"/>
         </createTable>
     </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-13">
+    <changeSet author="dashrath (generated)" id="1784803951223-13">
         <createTable tableName="ingestion">
-            <column autoIncrement="true" name="id" startWith="25541" type="INTEGER">
+            <column autoIncrement="true" name="id" type="INTEGER">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="ingestion_pkey"/>
             </column>
             <column name="version" type="INTEGER">
@@ -561,7 +560,7 @@
             <column name="unchanged_count" type="INTEGER"/>
         </createTable>
     </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-14">
+    <changeSet author="dashrath (generated)" id="1784803951223-14">
         <createTable tableName="pmc_keywords">
             <column autoIncrement="true" name="id" type="INTEGER">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="pmc_keywords_pkey"/>
@@ -590,7 +589,7 @@
             </column>
         </createTable>
     </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-15">
+    <changeSet author="dashrath (generated)" id="1784803951223-15">
         <createTable tableName="pmc_review">
             <column name="id" type="INTEGER">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="pmc_review_pk"/>
@@ -612,9 +611,225 @@
             <column name="created_at" type="TIMESTAMP WITH TIME ZONE"/>
         </createTable>
     </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-16">
+    <changeSet author="dashrath (generated)" id="1784803951223-16">
+        <createTable tableName="known_divergences">
+            <column autoIncrement="true" name="id" type="INTEGER">
+                <constraints nullable="false"/>
+            </column>
+            <column name="epmc_id" type="VARCHAR"/>
+            <column name="doi" type="VARCHAR"/>
+            <column name="field_path" type="TEXT"/>
+            <column name="epmc_value" type="TEXT"/>
+            <column name="retained_value" type="TEXT"/>
+            <column name="rejected_by" type="VARCHAR"/>
+            <column name="rejected_at" type="TIMESTAMP WITH TIME ZONE"/>
+            <column name="review_comment" type="TEXT"/>
+            <column name="active" type="BOOLEAN"/>
+            <column name="review_id" type="INTEGER"/>
+            <column name="ingestion_id" type="INTEGER"/>
+            <column name="created_at" type="TIMESTAMP WITH TIME ZONE"/>
+        </createTable>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-17">
+        <createTable tableName="audit_log">
+            <column autoIncrement="true" name="id" type="INTEGER">
+                <constraints nullable="false"/>
+            </column>
+            <column name="event_type" type="VARCHAR"/>
+            <column name="environment" remarks="'staging' | 'production'" type="VARCHAR"/>
+            <column name="entity_type" remarks="-- 'article' | 'author' | 'affiliation' | 'citation'&#10;                                    -- | 'reference' | 'fulltext' | 'grant'&#10;                                    -- | 'ingestion' | 'review'" type="VARCHAR"/>
+            <column name="entity_id" remarks="PK of the affected row in its own table&#10;-- (staging PK for staging events; production PK for production events)" type="VARCHAR"/>
+            <column name="epmc_id" remarks="EuropePMC id; NULL for ingestion-level events" type="VARCHAR"/>
+            <column name="doi" remarks="Null if epmc_id is present" type="VARCHAR"/>
+            <column name="ingestion_id" type="INTEGER"/>
+            <column name="review_id" type="INTEGER"/>
+            <column name="action_by" remarks="'system' for auto approved or curator username" type="VARCHAR"/>
+            <column name="action_at" type="TIMESTAMP WITH TIME ZONE"/>
+            <column name="old_value" remarks="state before the event; NULL for inserts / non-write events" type="JSONB"/>
+            <column name="new_value" remarks="state after the event; NULL for deletions / non-write events" type="JSONB"/>
+            <column name="comment" type="TEXT"/>
+        </createTable>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-18">
+        <createTable tableName="schema_migrations">
+            <column name="version" type="BIGINT">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="schema_migrations_pkey"/>
+            </column>
+            <column name="dirty" type="BOOLEAN">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-19">
+        <createIndex indexName="idx_pypi_project_name" tableName="pypi" using="btree">
+            <column name="project_name"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-20">
+        <createIndex indexName="idx_pypi_versions_python_version" tableName="pypi_versions" using="btree">
+            <column name="python_version"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-21">
+        <createIndex indexName="idx_github_repos_name" tableName="github_repos" using="btree">
+            <column name="name"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-22">
+        <createIndex indexName="idx_github_repos_owner" tableName="github_repos" using="btree">
+            <column name="owner"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-23">
+        <createIndex indexName="idx_github_repos_is_archived" tableName="github_repos" using="btree">
+            <column name="is_archived"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-24">
+        <createIndex indexName="idx_github_repos_is_fork" tableName="github_repos" using="btree">
+            <column name="is_fork"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-25">
+        <createIndex indexName="idx_github_archieved_stats_repo_id" tableName="github_archieved_stats" using="btree">
+            <column name="repo_id"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-26">
+        <createIndex indexName="idx_pmc_articles_record_id" tableName="pmc_articles" using="btree">
+            <column name="record_id"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-27">
+        <createIndex indexName="idx_pmc_articles_pm_id" tableName="pmc_articles" using="btree">
+            <column name="pm_id"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-28">
+        <createIndex indexName="idx_pmc_articles_pmc_id" tableName="pmc_articles" using="btree">
+            <column name="pmc_id"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-29">
+        <createIndex indexName="idx_pmc_articles_doi" tableName="pmc_articles" using="btree">
+            <column name="doi"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-30">
+        <createIndex indexName="idx_pmc_articles_pub_year" tableName="pmc_articles" using="btree">
+            <column name="pub_year"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-31">
+        <createIndex indexName="idx_pmc_articles_is_open_access" tableName="pmc_articles" using="btree">
+            <column name="is_open_access"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-32">
+        <createIndex indexName="pmc_articles_epmc_id_idx" tableName="pmc_articles" using="btree">
+            <column name="epmc_id"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-33">
+        <createIndex indexName="idx_pmc_authors_lastname" tableName="pmc_authors" using="btree">
+            <column name="lastname"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-34">
+        <createIndex indexName="idx_pmc_authors_orcid" tableName="pmc_authors" using="btree">
+            <column name="orcid"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-35">
+        <createIndex indexName="idx_affiliations_article_id" tableName="pmc_affiliations" using="btree">
+            <column name="article_id"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-36">
+        <createIndex indexName="idx_affiliations_org" tableName="pmc_affiliations" using="btree">
+            <column name="org_name"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-37">
+        <createIndex indexName="idx_articles_authors_article_id" tableName="articles_authors" using="btree">
+            <column name="article_id"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-38">
+        <createIndex indexName="idx_articles_authors_author_id" tableName="articles_authors" using="btree">
+            <column name="author_id"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-39">
+        <createIndex indexName="idx_unique_article_author_order" tableName="articles_authors" unique="true" using="btree">
+            <column name="article_id"/>
+            <column name="author_id"/>
+            <column name="author_order"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-40">
+        <createIndex indexName="idx_grants_agency" tableName="grants" using="btree">
+            <column name="agency"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-41">
+        <createIndex indexName="idx_grants_grant_id" tableName="grants" using="btree">
+            <column name="grant_id"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-42">
+        <createIndex indexName="idx_grants_record_id" tableName="grants" using="btree">
+            <column name="record_id"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-43">
+        <createIndex indexName="idx_fulltexts_article_id" tableName="fulltexts" using="btree">
+            <column name="article_id"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-44">
+        <createIndex indexName="idx_citations_article_id" tableName="citations" using="btree">
+            <column name="article_id"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-45">
+        <createIndex indexName="idx_citations_citation_id" tableName="citations" using="btree">
+            <column name="citation_id"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-46">
+        <createIndex indexName="idx_citations_citation_count" tableName="citations" using="btree">
+            <column defaultValueNumeric="0" name="citation_count"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-47">
+        <createIndex indexName="idx_citations_pub_year" tableName="citations" using="btree">
+            <column name="pub_year"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-48">
+        <createIndex indexName="idx_references_article_id" tableName="pmc_references" using="btree">
+            <column name="article_id"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-49">
+        <createIndex indexName="idx_references_pub_year" tableName="pmc_references" using="btree">
+            <column name="pub_year"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-50">
+        <createIndex indexName="idx_ingestion_ingested_at" tableName="ingestion" using="btree">
+            <column defaultValueComputed="now()" name="ingested_at"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-51">
+        <createIndex indexName="idx_ingestion_version" tableName="ingestion" using="btree">
+            <column name="version"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-52">
         <createTable tableName="records">
-            <column autoIncrement="true" name="id" startWith="17003" type="BIGINT">
+            <column autoIncrement="true" name="id" type="BIGINT">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="records_pkey"/>
             </column>
             <column name="record_type" type="RECORD_TYPE">
@@ -649,37 +864,7 @@
             <column name="product_line" type="PRODUCT_TYPE"/>
         </createTable>
     </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-17">
-        <createIndex indexName="idx_pypi_project_name" tableName="pypi" using="btree">
-            <column name="project_name"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-18">
-        <createIndex indexName="idx_pypi_versions_python_version" tableName="pypi_versions" using="btree">
-            <column name="python_version"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-19">
-        <createIndex indexName="idx_github_repos_name" tableName="github_repos" using="btree">
-            <column name="name"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-20">
-        <createIndex indexName="idx_github_repos_owner" tableName="github_repos" using="btree">
-            <column name="owner"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-21">
-        <createIndex indexName="idx_github_repos_is_archived" tableName="github_repos" using="btree">
-            <column name="is_archived"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-22">
-        <createIndex indexName="idx_github_repos_is_fork" tableName="github_repos" using="btree">
-            <column name="is_fork"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-23">
+    <changeSet author="dashrath (generated)" id="1784803951223-53">
         <createTable tableName="repo_entity_actions">
             <column autoIncrement="true" name="id" type="BIGINT">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="repo_entity_actions_pkey"/>
@@ -710,7 +895,7 @@
             </column>
         </createTable>
     </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-24">
+    <changeSet author="dashrath (generated)" id="1784803951223-54">
         <createTable tableName="contributor_entity">
             <column name="id" type="UUID">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="contributor_entity_pkey"/>
@@ -746,252 +931,174 @@
             </column>
         </createTable>
     </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-25">
-        <createIndex indexName="idx_github_archieved_stats_repo_id" tableName="github_archieved_stats" using="btree">
-            <column name="repo_id"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-26">
-        <createIndex indexName="idx_pmc_articles_record_id" tableName="pmc_articles" using="btree">
-            <column name="record_id"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-27">
-        <createIndex indexName="idx_pmc_articles_pm_id" tableName="pmc_articles" using="btree">
-            <column name="pm_id"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-28">
-        <createIndex indexName="idx_pmc_articles_pmc_id" tableName="pmc_articles" using="btree">
-            <column name="pmc_id"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-29">
-        <createIndex indexName="idx_pmc_articles_doi" tableName="pmc_articles" using="btree">
-            <column name="doi"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-30">
-        <createIndex indexName="idx_pmc_articles_pub_year" tableName="pmc_articles" using="btree">
-            <column name="pub_year"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-31">
-        <createIndex indexName="idx_pmc_articles_is_open_access" tableName="pmc_articles" using="btree">
-            <column name="is_open_access"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-32">
-        <createIndex indexName="pmc_articles_epmc_id_idx" tableName="pmc_articles" using="btree">
-            <column name="epmc_id"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-33">
-        <createIndex indexName="idx_pmc_authors_lastname" tableName="pmc_authors" using="btree">
-            <column name="lastname"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-34">
-        <createIndex indexName="idx_pmc_authors_orcid" tableName="pmc_authors" using="btree">
-            <column name="orcid"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-35">
-        <createIndex indexName="idx_affiliations_article_id" tableName="pmc_affiliations" using="btree">
-            <column name="article_id"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-36">
-        <createIndex indexName="idx_affiliations_org" tableName="pmc_affiliations" using="btree">
-            <column name="org_name"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-37">
-        <createIndex indexName="idx_articles_authors_article_id" tableName="articles_authors" using="btree">
-            <column name="article_id"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-38">
-        <createIndex indexName="idx_articles_authors_author_id" tableName="articles_authors" using="btree">
-            <column name="author_id"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-39">
-        <createIndex indexName="idx_unique_article_author_order" tableName="articles_authors" unique="true" using="btree">
-            <column name="article_id"/>
-            <column name="author_id"/>
-            <column name="author_order"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-40">
-        <createIndex indexName="idx_grants_agency" tableName="grants" using="btree">
-            <column name="agency"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-41">
-        <createIndex indexName="idx_grants_grant_id" tableName="grants" using="btree">
-            <column name="grant_id"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-42">
-        <createIndex indexName="idx_grants_record_id" tableName="grants" using="btree">
-            <column name="record_id"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-43">
-        <createIndex indexName="idx_fulltexts_article_id" tableName="fulltexts" using="btree">
-            <column name="article_id"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-44">
-        <createIndex indexName="idx_citations_article_id" tableName="citations" using="btree">
-            <column name="article_id"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-45">
-        <createIndex indexName="idx_citations_citation_id" tableName="citations" using="btree">
-            <column name="citation_id"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-46">
-        <createIndex indexName="idx_citations_citation_count" tableName="citations" using="btree">
-            <column defaultValueNumeric="0" name="citation_count"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-47">
-        <createIndex indexName="idx_citations_pub_year" tableName="citations" using="btree">
-            <column name="pub_year"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-48">
-        <createIndex indexName="idx_references_article_id" tableName="pmc_references" using="btree">
-            <column name="article_id"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-49">
-        <createIndex indexName="idx_references_pub_year" tableName="pmc_references" using="btree">
-            <column name="pub_year"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-50">
-        <createIndex indexName="idx_ingestion_ingested_at" tableName="ingestion" using="btree">
-            <column defaultValueComputed="now()" name="ingested_at"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-51">
-        <createIndex indexName="idx_ingestion_version" tableName="ingestion" using="btree">
-            <column name="version"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-52">
+    <changeSet author="dashrath (generated)" id="1784803951223-55">
         <createIndex indexName="pmc_review_ingestion_id_idx" tableName="pmc_review" using="btree">
             <column name="ingestion_id"/>
         </createIndex>
     </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-53">
+    <changeSet author="dashrath (generated)" id="1784803951223-56">
         <createIndex indexName="pmc_review_epmc_id_idx" tableName="pmc_review" using="btree">
             <column name="epmc_id"/>
         </createIndex>
     </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-54">
+    <changeSet author="dashrath (generated)" id="1784803951223-57">
         <createIndex indexName="pmc_review_production_id_idx" tableName="pmc_review" using="btree">
             <column name="production_id"/>
         </createIndex>
     </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-55">
+    <changeSet author="dashrath (generated)" id="1784803951223-58">
         <createIndex indexName="pmc_review_review_status_idx" tableName="pmc_review" using="btree">
             <column name="review_status"/>
         </createIndex>
     </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-56">
+    <changeSet author="dashrath (generated)" id="1784803951223-59">
         <createIndex indexName="pmc_review_staging_id_idx" tableName="pmc_review" using="btree">
             <column name="staging_id"/>
         </createIndex>
     </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-57">
+    <changeSet author="dashrath (generated)" id="1784803951223-60">
+        <createIndex indexName="known_divergences_epmc_id_active_idx" tableName="known_divergences" using="btree">
+            <column name="epmc_id"/>
+            <column name="active"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-61">
+        <createIndex indexName="known_divergences_field_path_idx" tableName="known_divergences" using="btree">
+            <column name="field_path"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-62">
+        <createIndex indexName="known_divergences_review_id_idx" tableName="known_divergences" using="btree">
+            <column name="review_id"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-63">
+        <createIndex indexName="known_divergences_epmc_id_idx" tableName="known_divergences" using="btree">
+            <column name="epmc_id"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-64">
+        <createIndex indexName="known_divergences_epmc_value_idx" tableName="known_divergences" using="btree">
+            <column name="epmc_value"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-65">
+        <createIndex indexName="audit_log_epmc_id_idx" tableName="audit_log" using="btree">
+            <column name="epmc_id"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-66">
+        <createIndex indexName="audit_log_ingestion_id_idx" tableName="audit_log" using="btree">
+            <column name="ingestion_id"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-67">
+        <createIndex indexName="audit_log_event_type_idx" tableName="audit_log" using="btree">
+            <column name="event_type"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-68">
+        <createIndex indexName="audit_log_event_type_id_idx" tableName="audit_log" using="btree">
+            <column name="event_type"/>
+            <column name="entity_id"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-69">
+        <createIndex indexName="audit_log_action_by_idx" tableName="audit_log" using="btree">
+            <column name="action_by"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-70">
+        <createIndex indexName="audit_log_action_at_idx" tableName="audit_log" using="btree">
+            <column name="action_at"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-71">
         <createIndex indexName="idx_records_keyword" tableName="records" using="gin">
             <column name="keyword"/>
         </createIndex>
     </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-58">
+    <changeSet author="dashrath (generated)" id="1784803951223-72">
         <createIndex indexName="idx_records_product_line" tableName="records" using="btree">
             <column name="product_line"/>
         </createIndex>
     </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-59">
+    <changeSet author="dashrath (generated)" id="1784803951223-73">
         <createIndex indexName="idx_repo_entity_repo_id" tableName="repo_entity_actions" using="btree">
             <column name="repo_id"/>
         </createIndex>
     </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-60">
+    <changeSet author="dashrath (generated)" id="1784803951223-74">
         <createIndex indexName="idx_contributor_entity_location" tableName="contributor_entity" using="btree">
             <column name="location"/>
         </createIndex>
     </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-61">
+    <changeSet author="dashrath (generated)" id="1784803951223-75">
         <createIndex indexName="idx_contributor_entity_type" tableName="contributor_entity" using="btree">
             <column name="type"/>
         </createIndex>
     </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-62">
-        <createTable tableName="schema_migrations">
-            <column name="version" type="BIGINT">
-                <constraints nullable="false" primaryKey="true" primaryKeyName="schema_migrations_pkey"/>
-            </column>
-            <column name="dirty" type="BOOLEAN">
-                <constraints nullable="false"/>
-            </column>
-        </createTable>
+    <changeSet author="dashrath (generated)" id="1784803951223-76">
+        <addForeignKeyConstraint baseColumnNames="ingestion_id" baseTableName="audit_log" constraintName="audit_log_ingestion_fk" deferrable="false" initiallyDeferred="false" onDelete="NO ACTION" onUpdate="NO ACTION" referencedColumnNames="id" referencedTableName="ingestion" validate="true"/>
     </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-63">
+    <changeSet author="dashrath (generated)" id="1784803951223-77">
+        <addForeignKeyConstraint baseColumnNames="review_id" baseTableName="audit_log" constraintName="audit_log_pmc_review_fk" deferrable="false" initiallyDeferred="false" onDelete="NO ACTION" onUpdate="NO ACTION" referencedColumnNames="id" referencedTableName="pmc_review" validate="true"/>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-78">
         <addForeignKeyConstraint baseColumnNames="author_id" baseTableName="pmc_affiliations" constraintName="fk_affiliations_author" deferrable="false" initiallyDeferred="false" onDelete="CASCADE" onUpdate="NO ACTION" referencedColumnNames="id" referencedTableName="pmc_authors" validate="true"/>
     </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-64">
+    <changeSet author="dashrath (generated)" id="1784803951223-79">
         <addForeignKeyConstraint baseColumnNames="article_id" baseTableName="articles_authors" constraintName="fk_articles_authors_article" deferrable="false" initiallyDeferred="false" onDelete="CASCADE" onUpdate="NO ACTION" referencedColumnNames="id" referencedTableName="pmc_articles" validate="true"/>
     </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-65">
+    <changeSet author="dashrath (generated)" id="1784803951223-80">
         <addForeignKeyConstraint baseColumnNames="article_id" baseTableName="citations" constraintName="fk_citations_article" deferrable="false" initiallyDeferred="false" onDelete="CASCADE" onUpdate="NO ACTION" referencedColumnNames="id" referencedTableName="pmc_articles" validate="true"/>
     </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-66">
+    <changeSet author="dashrath (generated)" id="1784803951223-81">
         <addForeignKeyConstraint baseColumnNames="article_id" baseTableName="fulltexts" constraintName="fk_fulltexts_article" deferrable="false" initiallyDeferred="false" onDelete="CASCADE" onUpdate="NO ACTION" referencedColumnNames="id" referencedTableName="pmc_articles" validate="true"/>
     </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-67">
+    <changeSet author="dashrath (generated)" id="1784803951223-82">
         <addForeignKeyConstraint baseColumnNames="record_id" baseTableName="grants" constraintName="fk_grants_article" deferrable="false" initiallyDeferred="false" onDelete="CASCADE" onUpdate="NO ACTION" referencedColumnNames="id" referencedTableName="records" validate="true"/>
     </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-68">
+    <changeSet author="dashrath (generated)" id="1784803951223-83">
         <addForeignKeyConstraint baseColumnNames="article_id" baseTableName="pmc_affiliations" constraintName="fk_pmc_articles" deferrable="false" initiallyDeferred="false" onDelete="CASCADE" onUpdate="NO ACTION" referencedColumnNames="id" referencedTableName="pmc_articles" validate="true"/>
     </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-69">
+    <changeSet author="dashrath (generated)" id="1784803951223-84">
         <addForeignKeyConstraint baseColumnNames="record_id" baseTableName="pmc_articles" constraintName="fk_pmc_articles_record" deferrable="false" initiallyDeferred="false" onDelete="CASCADE" onUpdate="NO ACTION" referencedColumnNames="id" referencedTableName="records" validate="true"/>
     </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-70">
+    <changeSet author="dashrath (generated)" id="1784803951223-85">
         <addForeignKeyConstraint baseColumnNames="article_id" baseTableName="pmc_keywords" constraintName="fk_pmc_keywords_article" deferrable="false" initiallyDeferred="false" onDelete="CASCADE" onUpdate="NO ACTION" referencedColumnNames="id" referencedTableName="pmc_articles" validate="true"/>
     </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-71">
+    <changeSet author="dashrath (generated)" id="1784803951223-86">
         <addForeignKeyConstraint baseColumnNames="ingestion_id" baseTableName="pmc_keywords" constraintName="fk_pmc_keywords_ingestion" deferrable="false" initiallyDeferred="false" onDelete="SET NULL" onUpdate="NO ACTION" referencedColumnNames="id" referencedTableName="ingestion" validate="true"/>
     </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-72">
+    <changeSet author="dashrath (generated)" id="1784803951223-87">
         <addForeignKeyConstraint baseColumnNames="id" baseTableName="pypi_versions" constraintName="fk_pypi" deferrable="false" initiallyDeferred="false" onDelete="CASCADE" onUpdate="NO ACTION" referencedColumnNames="id" referencedTableName="pypi" validate="true"/>
     </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-73">
+    <changeSet author="dashrath (generated)" id="1784803951223-88">
         <addForeignKeyConstraint baseColumnNames="record_id" baseTableName="github_repos" constraintName="fk_record" deferrable="false" initiallyDeferred="false" onDelete="CASCADE" onUpdate="NO ACTION" referencedColumnNames="id" referencedTableName="records" validate="true"/>
     </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-74">
+    <changeSet author="dashrath (generated)" id="1784803951223-89">
         <addForeignKeyConstraint baseColumnNames="record_id" baseTableName="pypi" constraintName="fk_record" deferrable="false" initiallyDeferred="false" onDelete="CASCADE" onUpdate="NO ACTION" referencedColumnNames="id" referencedTableName="records" validate="true"/>
     </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-75">
+    <changeSet author="dashrath (generated)" id="1784803951223-90">
         <addForeignKeyConstraint baseColumnNames="article_id" baseTableName="pmc_references" constraintName="fk_references_article" deferrable="false" initiallyDeferred="false" onDelete="CASCADE" onUpdate="NO ACTION" referencedColumnNames="id" referencedTableName="pmc_articles" validate="true"/>
     </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-76">
+    <changeSet author="dashrath (generated)" id="1784803951223-91">
         <addForeignKeyConstraint baseColumnNames="repo_id" baseTableName="github_archieved_stats" constraintName="fk_repo" deferrable="false" initiallyDeferred="false" onDelete="CASCADE" onUpdate="NO ACTION" referencedColumnNames="id" referencedTableName="github_repos" validate="true"/>
     </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-77">
+    <changeSet author="dashrath (generated)" id="1784803951223-92">
+        <addForeignKeyConstraint baseColumnNames="ingestion_id" baseTableName="known_divergences" constraintName="known_divergences_ingestion_fk" deferrable="false" initiallyDeferred="false" onDelete="CASCADE" onUpdate="NO ACTION" referencedColumnNames="id" referencedTableName="ingestion" validate="true"/>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-93">
+        <addForeignKeyConstraint baseColumnNames="review_id" baseTableName="known_divergences" constraintName="known_divergences_pmc_review_fk" deferrable="false" initiallyDeferred="false" onDelete="CASCADE" onUpdate="NO ACTION" referencedColumnNames="id" referencedTableName="pmc_review" validate="true"/>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-94">
         <addForeignKeyConstraint baseColumnNames="ingestion_id" baseTableName="pmc_review" constraintName="pmc_review_ingestion_FK" deferrable="false" initiallyDeferred="false" onDelete="CASCADE" onUpdate="NO ACTION" referencedColumnNames="id" referencedTableName="ingestion" validate="true"/>
     </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-78">
+    <changeSet author="dashrath (generated)" id="1784803951223-95">
         <addForeignKeyConstraint baseColumnNames="staging_id" baseTableName="pmc_review" constraintName="pmc_review_pmc_articles_DK" deferrable="false" initiallyDeferred="false" onDelete="NO ACTION" onUpdate="NO ACTION" referencedColumnNames="id" referencedTableName="pmc_articles" validate="true"/>
     </changeSet>
-    <changeSet author="dashrath (generated)" id="1784030096040-79">
+    <changeSet author="dashrath (generated)" id="1784803951223-96">
         <addForeignKeyConstraint baseColumnNames="repo_id" baseTableName="repo_entity_actions" constraintName="repo_entity_actions_repo_id_fkey" deferrable="false" initiallyDeferred="false" onDelete="NO ACTION" onUpdate="NO ACTION" referencedColumnNames="id" referencedTableName="github_repos" validate="true"/>
     </changeSet>
 </databaseChangeLog>

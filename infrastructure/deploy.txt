@@ -71,7 +71,7 @@ aws cloudformation deploy \
   --cluster analytics-dashboard-staging-cluster \
   --task-definition analytics-dashboard-staging-liquibase \
   --launch-type FARGATE \
-  --network-configuration "awsvpcConfiguration={subnets=[subnet-0be7a1fb3a96191b4,subnet-0c465ec61b98bffac,subnet-07b0e79f4d9bbf9d0],securityGroups=[<SG_ID_FROM_BASE_INFRA_OUTPUTS>],assignPublicIp=ENABLED}" \
+  --network-configuration "awsvpcConfiguration={subnets=[subnet-0f26c31e6c9578717,subnet-00663ce89eb47404f,subnet-08b697026fc4502e5],securityGroups=[sg-0f473b33e2fa1c95a],assignPublicIp=ENABLED}" \
   --region us-east-2
 
   4. Check status
@@ -89,5 +89,4 @@ aws cloudformation describe-stack-events \
   --stack-name analytics-dashboard-staging-base \
   --region us-east-2 \
   --query "StackEvents[?contains(ResourceStatus, 'FAILED')].{Resource:LogicalResourceId,Status:ResourceStatus,Reason:ResourceStatusReason,Time:Timestamp}" \    
-  --output table  
-
+  --output table
