@@ -16,7 +16,7 @@ pydantic-settings==2.10.0
 
 # HTTP
 requests==2.33.0
-types-requests==2.32.4.20250913
+types-requests==2.33.0.20260518
 httpx==0.28.1
 python-dateutil==2.8.2
 
