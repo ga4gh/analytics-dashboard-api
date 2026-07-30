@@ -1,0 +1,152 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Template for analytics dashboard backend deployment on AWS ECS Fargate
+
+Parameters:
+  StaticStackName:
+    Type: String
+    Default: analytics-dashboard
+  Environment:
+    Type: String
+    Default: staging
+    AllowedValues:
+      - staging
+      - production
+  HostPort:
+    Type: String
+    Default: 8000
+  ParamContainerPort:
+    Type: String
+    Default: 8000
+  ApiImage:
+    Type: String
+  VpcId:
+    Type: String
+  SubnetA:
+    Type: String
+  SubnetB:
+    Type: String
+  SubnetC:
+    Type: String
+  DBURL:
+    Type: String
+    NoEcho: true
+  Region:
+    Type: String
+  Prefix:
+    Type: String
+    Default: ecs
+  ExecutionRole:
+    Type: String
+
+Resources:
+
+  ALBBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub "${StaticStackName}-${Environment}-backend-alb"
+      Scheme: internet-facing
+      Subnets:
+        - Ref: SubnetA
+        - Ref: SubnetB
+        - Ref: SubnetC
+      Type: application
+      SecurityGroups:
+        - Fn::ImportValue: !Sub "${StaticStackName}-${Environment}-SGId"
+
+  ALBTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub "${StaticStackName}-${Environment}-backend-tg"
+      VpcId:
+        Ref: VpcId
+      Protocol: HTTP
+      Port:
+        Ref: HostPort
+      HealthCheckEnabled: true
+      HealthCheckPath: /pypi/total-packages
+      HealthCheckIntervalSeconds: 120
+      HealthCheckTimeoutSeconds: 90
+      TargetType: ip
+
+  ALBListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    DependsOn: [
+      ALBBalancer,
+      ALBTargetGroup
+    ]
+    Properties:
+      DefaultActions:
+        - TargetGroupArn:
+            Ref: ALBTargetGroup
+          Type: forward
+      LoadBalancerArn:
+        Ref: ALBBalancer
+      Port:
+        Ref: HostPort
+      Protocol: HTTP
+
+  ECSService:
+    Type: AWS::ECS::Service
+    DependsOn: [
+      ECSTaskDefinition,
+      ALBListener,
+      ALBTargetGroup
+    ]
+    Properties:
+      Cluster:
+        Fn::ImportValue: !Sub "${StaticStackName}-${Environment}-cluster"
+      LaunchType: FARGATE
+      DesiredCount: 1
+      HealthCheckGracePeriodSeconds: 120
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups:
+            - Fn::ImportValue: !Sub "${StaticStackName}-${Environment}-SGId"
+          Subnets:
+            - Ref: SubnetA
+            - Ref: SubnetB
+            - Ref: SubnetC
+      ServiceName: !Sub "${StaticStackName}-${Environment}-backend-service"
+      TaskDefinition:
+        Ref: ECSTaskDefinition
+      LoadBalancers:
+        - TargetGroupArn:
+            Ref: ALBTargetGroup
+          ContainerName: !Sub "${StaticStackName}-${Environment}-container"
+          ContainerPort:
+            Ref: ParamContainerPort
+
+  ECSTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Cpu: 512
+      Memory: 1024
+      NetworkMode: awsvpc
+      ExecutionRoleArn: !Ref ExecutionRole
+      RequiresCompatibilities:
+        - FARGATE
+      RuntimePlatform:
+        CpuArchitecture: ARM64
+        OperatingSystemFamily: LINUX
+      ContainerDefinitions:
+        - Name: !Sub "${StaticStackName}-${Environment}-container"
+          Image: !Ref ApiImage
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group:
+                Fn::ImportValue: !Sub "${StaticStackName}-${Environment}-backend-logs"
+              awslogs-region: !Ref Region
+              awslogs-stream-prefix: !Ref Prefix
+          Environment:
+            - Name: DATABASE_URL
+              Value: !Ref DBURL
+          PortMappings:
+            - ContainerPort: !Ref ParamContainerPort
+              HostPort: !Ref HostPort
+
+Outputs:
+  ALBDNSName:
+    Description: DNS name of the Application Load Balancer
+    Value: !GetAtt ALBBalancer.DNSName
