@@ -18,4 +18,8 @@ flyway.config
 # CFT parameter files with real values (use *.example.json as reference)
 infrastructure/parameters/staging.json
 infrastructure/parameters/production.json
+<<<<<<< Updated upstream
 infrastructure/deploy.bat
+=======
+scripts/match_result.json
+>>>>>>> Stashed changes
