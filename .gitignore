@@ -19,3 +19,4 @@ flyway.config
 infrastructure/parameters/staging.json
 infrastructure/parameters/production.json
 infrastructure/deploy.bat
+scripts/match_result.json
