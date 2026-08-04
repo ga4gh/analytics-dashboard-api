@@ -292,6 +292,25 @@ class EPMCRepo:
     def get_all_grants(self, limit: int = 100, skip: int = 0) -> list[Grant]:
         return self.db.query(Grant).offset(skip).limit(limit).all()
 
+    def get_funding_agencies(self, limit: int = 50) -> list[dict]:
+        rows = (
+            self.db.query(Grant.agency, func.count(Grant.id).label("count"))
+            .filter(Grant.agency.isnot(None))
+            .group_by(Grant.agency)
+            .order_by(func.count(Grant.id).desc())
+            .limit(limit)
+            .all()
+        )
+        return [{"agency": agency, "count": int(count)} for agency, count in rows]
+
+    def get_unique_funding_agencies_count(self) -> int:
+        count = (
+            self.db.query(func.count(func.distinct(Grant.agency)))
+            .filter(Grant.agency.isnot(None))
+            .scalar()
+        )
+        return int(count) if count else 0
+
     def get_all_pmc_authors(self, limit: int = 100, skip: int = 0) -> list[PMCAuthor]:
         return self.db.query(PMCAuthor).offset(skip).limit(limit).all()
 
@@ -1078,23 +1097,35 @@ class EPMCRepo:
         return int(total) if total else 0
 
     def count_unique_authors(self) -> int:
-        return self.db.query(
-            func.count(
-                func.distinct(
-                    func.concat(
-                        func.lower(func.trim(PMCAuthor.firstname)),
-                        " ",
-                        func.lower(func.trim(PMCAuthor.lastname)),
-                        " ",
-                        func.lower(func.trim(PMCAuthor.initials))
-                    )
-                )
+        """
+        Count distinct authors linked to the deduplicated article set.
+        Mirrors the same row_number() dedup used by get_all_articles() so the
+        number is consistent with the 1-row-per-pm_id article count.
+        """
+        version_subq = (
+            self.db.query(
+                PMCArticle.id,
+                func.row_number().over(
+                    partition_by=PMCArticle.pm_id,
+                    order_by=Ingestion.version.desc().nullslast(),
+                ).label("rn"),
             )
-        ).filter(
-            PMCAuthor.firstname.isnot(None),
-            PMCAuthor.lastname.isnot(None),
-            PMCAuthor.initials.isnot(None)
-        ).scalar()
+            .outerjoin(Ingestion, PMCArticle.ingestion_id == Ingestion.id)
+            .subquery()
+        )
+
+        deduped_ids_subq = (
+            self.db.query(PMCArticle.id)
+            .join(version_subq, and_(PMCArticle.id == version_subq.c.id, version_subq.c.rn == 1))
+            .subquery()
+        )
+
+        count = (
+            self.db.query(func.count(func.distinct(ArticleAuthor.author_id)))
+            .filter(ArticleAuthor.article_id.in_(self.db.query(deduped_ids_subq.c.id)))
+            .scalar()
+        )
+        return int(count) if count else 0
         
     def count_articles(self) -> int:
         return 0;
