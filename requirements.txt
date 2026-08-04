@@ -30,5 +30,5 @@ xmltodict==1.0.4
 matplotlib==3.10.8
 pandas==2.3.3
 seaborn==0.13.2
-dash==4.0.0
+dash==4.4.1
 plotly==6.6.0
