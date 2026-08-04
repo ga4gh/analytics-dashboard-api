@@ -15,8 +15,8 @@ python-dotenv==1.2.2
 pydantic-settings==2.10.0
 
 # HTTP
+types-requests==2.33.0.20260712
 requests==2.34.2
-types-requests==2.33.0.20260518
 httpx==0.28.1
 python-dateutil==2.9.0.post0
 
