@@ -60,6 +60,15 @@ class EPMC:
         ):
             return repo.get_all_grants(limit=limit, skip=skip)
 
+        @self.router.get("/epmc/funding-agencies")
+        async def get_funding_agencies(
+            limit: int = 50,
+            repo: EPMCRepo = Depends(get_epmc_repo),
+        ):
+            agencies = repo.get_funding_agencies(limit=limit)
+            total_unique = repo.get_unique_funding_agencies_count()
+            return {"agencies": agencies, "total_unique": total_unique}
+
         @self.router.get("/epmc/all-pmc-authors")
         async def get_all_pmc_authors(
             limit: int = 1000,
