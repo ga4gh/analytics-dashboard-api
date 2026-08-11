@@ -60,6 +60,16 @@ class EPMC:
         ):
             return repo.get_all_grants(limit=limit, skip=skip)
 
+<<<<<<< Updated upstream
+        @self.router.get("/epmc/articles-light")
+        async def get_articles_light(
+            repo: EPMCRepo = Depends(get_epmc_repo),
+        ):
+            articles = repo.get_articles_for_dashboard()
+            return {"articles": articles, "article_count": len(articles)}
+
+=======
+>>>>>>> Stashed changes
         @self.router.get("/epmc/funding-agencies")
         async def get_funding_agencies(
             limit: int = 50,
@@ -69,6 +79,16 @@ class EPMC:
             total_unique = repo.get_unique_funding_agencies_count()
             return {"agencies": agencies, "total_unique": total_unique}
 
+<<<<<<< Updated upstream
+        @self.router.get("/epmc/publication-types")
+        async def get_publication_types(
+            repo: EPMCRepo = Depends(get_epmc_repo),
+        ):
+            types = repo.get_publication_types()
+            return {"types": types}
+
+=======
+>>>>>>> Stashed changes
         @self.router.get("/epmc/all-pmc-authors")
         async def get_all_pmc_authors(
             limit: int = 1000,

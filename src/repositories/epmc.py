@@ -265,21 +265,59 @@ class EPMCRepo:
             .subquery()
         )
         
+        # No relationship loading — the /epmc/all-articles endpoint serialises into
+        # PMCArticleCustom which contains scalar fields only. Loading relationships
+        # here added two extra queries per page (article_authors + affiliations)
+        # for data that was immediately discarded, causing timeouts on large datasets.
         return (
             self.db.query(PMCArticle)
             .join(version_subq, and_(PMCArticle.id == version_subq.c.id, version_subq.c.rn == 1))
-            .options(
-                selectinload(PMCArticle.article_authors),
-                selectinload(PMCArticle.affiliations),
-                #selectinload(PMCArticle.fulltexts),
-                #selectinload(PMCArticle.citations),
-                #selectinload(PMCArticle.references),
-
-            )
             .offset(skip)
             .limit(limit)
             .all()
         )
+
+    def get_articles_for_dashboard(self) -> list[dict]:
+        """
+        Lightweight article fetch for dashboard charts, KPIs, and data tables.
+        Uses DISTINCT ON (faster than window function) and returns only the
+        scalar columns the dashboard needs — no ORM inflation, no relationships.
+        Includes pm_id, abstract_text, language, and affiliation so that the
+        article detail panel, affiliation filter, and Most Cited table all work
+        without needing raw_json.
+        """
+        from sqlalchemy import text
+        sql = """
+            SELECT DISTINCT ON (a.pm_id)
+                a.pm_id,
+                a.title,
+                a.doi,
+                a.pub_year,
+                a.cited_by_count,
+                a.is_open_access,
+                a.abstract_text,
+                a.language,
+                a.affiliation
+            FROM pmc_articles a
+            LEFT JOIN ingestion i ON a.ingestion_id = i.id
+            WHERE a.pm_id IS NOT NULL
+            ORDER BY a.pm_id, i.version DESC NULLS LAST
+        """
+        rows = self.db.execute(text(sql))
+        return [
+            {
+                "pm_id":          r.pm_id or "",
+                "title":          r.title or "",
+                "doi":            r.doi or "",
+                "pub_year":       r.pub_year,
+                "cited_by_count": r.cited_by_count or 0,
+                "is_open_access": str(r.is_open_access).lower() in ("y", "yes", "true", "1"),
+                "abstract_text":  r.abstract_text or "",
+                "language":       r.language or "",
+                "affiliation":    r.affiliation or "",
+            }
+            for r in rows
+        ]
 
     def get_total_unique_articles_count(self) -> int:
         """
@@ -311,6 +349,50 @@ class EPMCRepo:
         )
         return int(count) if count else 0
 
+<<<<<<< Updated upstream
+    def get_publication_types(self) -> list[dict]:
+        """
+        Classify each deduplicated article into exactly one primary type using
+        a priority hierarchy: Preprint > Review > Comment/Letter > Journal Article > Other.
+        Each article is counted once, so counts sum to the total unique article count.
+        """
+        from sqlalchemy import text
+        sql = """
+            WITH ranked AS (
+                SELECT a.id,
+                       row_number() OVER (
+                           PARTITION BY a.pm_id
+                           ORDER BY i.version DESC NULLS LAST
+                       ) AS rn
+                FROM pmc_articles a
+                LEFT JOIN ingestion i ON a.ingestion_id = i.id
+                WHERE a.pm_id IS NOT NULL
+            ),
+            deduped AS (
+                SELECT r.id FROM ranked r WHERE r.rn = 1
+            )
+            SELECT
+                CASE
+                    WHEN a.pub_type::text ILIKE '%Preprint%'        THEN 'Preprint'
+                    WHEN a.pub_type::text ILIKE '%Review%'          THEN 'Review'
+                    WHEN a.pub_type::text ILIKE '%Comment%'
+                      OR a.pub_type::text ILIKE '%Letter%'
+                      OR a.pub_type::text ILIKE '%Editorial%'       THEN 'Comment / Letter'
+                    WHEN a.pub_type::text ILIKE '%Journal Article%' THEN 'Journal Article'
+                    ELSE 'Other'
+                END AS primary_type,
+                COUNT(*) AS count
+            FROM pmc_articles a
+            JOIN deduped d ON a.id = d.id
+            WHERE a.pub_type IS NOT NULL
+            GROUP BY primary_type
+            ORDER BY count DESC
+        """
+        result = self.db.execute(text(sql))
+        return [{"type": row.primary_type, "count": int(row.count)} for row in result]
+
+=======
+>>>>>>> Stashed changes
     def get_all_pmc_authors(self, limit: int = 100, skip: int = 0) -> list[PMCAuthor]:
         return self.db.query(PMCAuthor).offset(skip).limit(limit).all()
 
