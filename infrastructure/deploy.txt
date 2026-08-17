@@ -111,7 +111,7 @@ aws cloudformation deploy \
     SubnetC=subnet-08b697026fc4502e5 \
     ExecutionRole=arn:aws:iam::282236276875:role/ECSFargateExecutionRole-TT \
     Region=us-east-2 \
-    DBURL="postgresql://analytics_dashboard_staging_user:oQAh5Ya2phKAzy86KDJGlDc52I1NLKDZgsFLNENY0PLcMJBDh8N9VyPubuxh8A1g@analytics-dashboard-staging-base-database-verhcap8spla.c0q4keadjybw.us-east-2.rds.amazonaws.com:5432/analytics_dashboard_staging_db?sslmode=require"
+    DBURL="postgresql://analytics_dashboard_staging_user:pwd@analytics-dashboard-staging-base-database-verhcap8spla.c0q4keadjybw.us-east-2.rds.amazonaws.com:5432/analytics_dashboard_staging_db?sslmode=require"
 
 Step 4:
 Deploy Frontend
