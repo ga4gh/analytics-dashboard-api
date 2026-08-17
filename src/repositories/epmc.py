@@ -1124,7 +1124,8 @@ class EPMCRepo:
         return int(count) if count else 0
         
     def count_articles(self) -> int:
-        return 0
+        count = self.db.query(func.count(func.distinct(PMCArticle.pm_id))).scalar()
+        return int(count) if count else 0
 
     def get_articles_for_dashboard(self) -> list[dict]:
         from sqlalchemy import text
