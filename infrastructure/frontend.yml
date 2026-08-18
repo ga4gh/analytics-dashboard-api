@@ -37,6 +37,9 @@ Parameters:
     Type: String
   CertificateArn:
     Type: String
+  ShortName:
+    Type: String
+    Default: an-db
 
 Resources:
   ALBSecurityGroup:
@@ -57,7 +60,7 @@ Resources:
   ALB:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
-      Name: !Sub "${StaticStackName}-${Environment}-fe-alb"
+      Name: !Sub "${ShortName}-${Environment}-fe-alb"
       Type: application
       Scheme: internet-facing
       IpAddressType: ipv4
@@ -71,7 +74,7 @@ Resources:
   TargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      Name: !Sub "${StaticStackName}-${Environment}-fe-tg"
+      Name: !Sub "${ShortName}-${Environment}-fe-tg"
       TargetType: ip
       Protocol: HTTP
       Port: !Ref UIPort

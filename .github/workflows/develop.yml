@@ -5,7 +5,7 @@ on:
     branches:
       - main
       - develop
-      - dc-iss-122-infrastructure-update
+      - dc-deployment-pipeline
 permissions:
   id-token: write
 
@@ -20,7 +20,7 @@ jobs:
 
       - name: save command output
         run: |
-          echo "DOCKER_REPO=analytics-dashboard" >> $GITHUB_ENV
+          echo "DOCKER_REPO=analytics-dashboard-api" >> $GITHUB_ENV
           echo "DOCKER_TAG=$(git describe --tags)" >> $GITHUB_ENV
 
       - name: configure aws credentials
