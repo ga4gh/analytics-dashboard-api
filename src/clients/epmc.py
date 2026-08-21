@@ -28,10 +28,11 @@ class EPMCClient:
 
     def create_article(self, article_data, record_id, ingestion_id: int, created_by: str = "system", cited_by: int = 0) -> PMCArticle:
         return PMCArticle(
-            id=None,  
+            id=None,
             record_id=record_id,
             ingestion_id=ingestion_id,
             source=article_data.get("source", ""),
+            epmc_id=article_data.get("id"),
             pm_id=article_data.get("id"),
             pmc_id=article_data.get("pmcid", "") or "",
             full_text_id=((article_data.get("fullTextIdList") or {}).get("fullTextId") or ""),
@@ -282,23 +283,38 @@ class EPMCClient:
         )
     
 
-    def create_ingestion(self, version, created_by: str = "system") -> Ingestion:
+    def create_ingestion(
+        self,
+        version,
+        keyword: Optional[str] = None,
+        run_type: str = "full",
+        api_version: Optional[str] = None,
+        created_by: str = "system",
+    ) -> Ingestion:
         return Ingestion(
             id=None,
-            ingested_at=datetime.utcnow(), 
+            ingested_at=datetime.utcnow(),
+            keyword=keyword,
+            run_type=run_type,
+            api_version=api_version,
             created_by=created_by,
             created_at=datetime.utcnow(),
-            version=version
+            version=version,
         )
-    
+
     def update_ingestion(self, ingestion_id, rows_count: int) -> Ingestion:
         return Ingestion(
             id=ingestion_id,
-            rows_count=rows_count
+            rows_count=rows_count,
         )
 
     def get_articles(self, keyword):
-        json_response = self.get_json(self.base_url, self.get_articles_endpoint(keyword))        
+        json_response = self.get_json(self.base_url, self.get_articles_endpoint(keyword))
+        return json_response
+
+    def get_delta_articles(self, keyword: str, from_date: str, to_date: str) -> Dict[str, Any]:
+        """Fetch only articles updated between from_date and to_date (YYYY-MM-DD)."""
+        json_response = self.get_json(self.base_url, self.get_delta_articles_endpoint(keyword, from_date, to_date))
         return json_response
 
     def get_references(self, id, source="MED"):
@@ -315,6 +331,10 @@ class EPMCClient:
 
     def get_articles_endpoint(self, keyword):
         return f"search?query={keyword}&format=json&resultType=core"
+
+    def get_delta_articles_endpoint(self, keyword: str, from_date: str, to_date: str) -> str:
+        """Build the UPDATE_DATE-filtered search URL for delta pulls."""
+        return f"search?query={keyword}%20UPDATE_DATE%3A%5B{from_date}%20TO%20{to_date}%5D&format=json&resultType=core"
 
     def get_citations_endpoint(self, id, source="MED"):
         return f"{source}/{id}/citations?format=json"

@@ -78,7 +78,12 @@ class EPMCService:
         results = json_response.get("resultList", {}).get("result", []) or []
 
         ingestion_version = self._next_ingestion_version()
-        ingestion_model = self.epmc_client.create_ingestion(ingestion_version, created_by=created_by)
+        ingestion_model = self.epmc_client.create_ingestion(
+            ingestion_version,
+            keyword=keyword,
+            run_type="full",
+            created_by=created_by,
+        )
         ingestion_id = self.epmc_repo.insert_or_update(ingestion_model, Ingestion, False)
         self.ingestion_id = ingestion_id
 
@@ -175,8 +180,8 @@ class EPMCService:
                             counts["affiliations"] += 1
                             fallback_affiliation_order += 1
             
-            #ingestion_model = self.epmc_client.update_ingestion(self.ingestion_id, counts["articles"])    
-            #self.epmc_repo.update_ingestion_count(ingestion_model, Ingestion) 
+            ingestion_model = self.epmc_client.update_ingestion(self.ingestion_id, counts["articles"])
+            self.epmc_repo.update_ingestion_count(ingestion_model, Ingestion)
             self.epmc_repo.commit_to_db()
         except Exception:
             self.epmc_repo.rollback()
@@ -224,10 +229,14 @@ class EPMCService:
             if not article_map:
                 raise ValueError("Ingestion ID is not set and use_db_articles is False. Please run insert_articles_by_keyword first or set use_db_articles=True.")
 
-        # Create ingestion if needed (for new reference records)
+        # Create ingestion if needed (for standalone reference ingestion with no prior article run)
         if self.ingestion_id is None:
             ingestion_version = self._next_ingestion_version()
-            ingestion_model = self.epmc_client.create_ingestion(ingestion_version, created_by)
+            ingestion_model = self.epmc_client.create_ingestion(
+                ingestion_version,
+                run_type="full",
+                created_by=created_by,
+            )
             self.ingestion_id = self.epmc_repo.insert_or_update(ingestion_model, Ingestion, False)
 
         try:
