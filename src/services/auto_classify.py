@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from src.models.entities.audit_log import AuditLog
+from src.models.entities.enums import AuditEventType
 from src.models.entities.known_divergence import KnownDivergence
 from src.models.entities.pmc_article import PMCArticle
 from src.models.entities.pmc_review import PMCReview
@@ -157,7 +158,7 @@ class AutoClassifyService:
             if match_key == "unresolvable":
                 result.unresolvable_count += 1
                 self._write_audit_log(
-                    event_type="ARTICLE_UNRESOLVABLE",
+                    event_type=AuditEventType.ARTICLE_UNRESOLVABLE,
                     staged=staged_article,
                     ingestion_id=ingestion_id,
                     action_by=created_by,
@@ -183,7 +184,7 @@ class AutoClassifyService:
                     created_by=created_by,
                 )
                 self._write_audit_log(
-                    event_type="ARTICLE_CLASSIFIED_NEW",
+                    event_type=AuditEventType.ARTICLE_CLASSIFIED_NEW,
                     staged=staged_article,
                     ingestion_id=ingestion_id,
                     action_by=created_by,
@@ -213,7 +214,7 @@ class AutoClassifyService:
                         created_by=created_by,
                     )
                     self._write_audit_log(
-                        event_type="ARTICLE_CLASSIFIED_UNCHANGED",
+                        event_type=AuditEventType.ARTICLE_CLASSIFIED_UNCHANGED,
                         staged=staged_article,
                         ingestion_id=ingestion_id,
                         action_by=created_by,
@@ -244,7 +245,7 @@ class AutoClassifyService:
                             created_by=created_by,
                         )
                         self._write_audit_log(
-                            event_type="ARTICLE_CLASSIFIED_KNOWN_DIVERGENCE",
+                            event_type=AuditEventType.ARTICLE_CLASSIFIED_KNOWN_DIV,
                             staged=staged_article,
                             ingestion_id=ingestion_id,
                             action_by=created_by,
@@ -279,7 +280,7 @@ class AutoClassifyService:
                             created_by=created_by,
                         )
                         self._write_audit_log(
-                            event_type="ARTICLE_CLASSIFIED_CHANGED",
+                            event_type=AuditEventType.ARTICLE_CLASSIFIED_CHANGED,
                             staged=staged_article,
                             ingestion_id=ingestion_id,
                             action_by=created_by,
@@ -299,7 +300,7 @@ class AutoClassifyService:
 
         # Summary audit log for the full run
         self._write_audit_log(
-            event_type="INGESTION_CLASSIFICATION_COMPLETE",
+            event_type=AuditEventType.INGESTION_CLASSIFICATION_COMPLETE,
             staged=None,
             ingestion_id=ingestion_id,
             action_by=created_by,
@@ -361,7 +362,7 @@ class AutoClassifyService:
 
     def _write_audit_log(
         self,
-        event_type: str,
+        event_type: AuditEventType,
         staged: Optional[PMCArticle],
         ingestion_id: int,
         action_by: str = "system",
