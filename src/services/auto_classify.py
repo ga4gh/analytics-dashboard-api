@@ -1,11 +1,13 @@
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from src.models.entities.audit_log import AuditLog
+from src.models.entities.known_divergence import KnownDivergence
 from src.models.entities.pmc_article import PMCArticle
 from src.models.entities.pmc_review import PMCReview
 
@@ -112,6 +114,7 @@ class ClassifyResult:
     new_count: int = 0
     unchanged_count: int = 0
     changed_count: int = 0
+    known_divergence_count: int = 0
     auto_approved_count: int = 0
     pending_review_count: int = 0
     unresolvable_count: int = 0
@@ -120,11 +123,12 @@ class ClassifyResult:
 class AutoClassifyService:
     """
     Compares every article from a completed ingestion run against the production
-    database and classifies each record as NEW, UNCHANGED, or CHANGED.
+    database and classifies each record as NEW, UNCHANGED, CHANGED, or
+    KNOWN_DIVERGENCE.
 
     Reads from staging_db (ingestion snapshot).
     Reads from production_db (current curated state).
-    Writes pmc_review rows to staging_db.
+    Writes pmc_review rows and audit_log events to staging_db.
     Updates the ingestion row counts in staging_db at completion.
     """
 
@@ -152,8 +156,14 @@ class AutoClassifyService:
 
             if match_key == "unresolvable":
                 result.unresolvable_count += 1
+                self._write_audit_log(
+                    event_type="ARTICLE_UNRESOLVABLE",
+                    staged=staged_article,
+                    ingestion_id=ingestion_id,
+                    action_by=created_by,
+                )
                 logger.warning(
-                    "COMPARISON_UNRESOLVABLE ingestion_id=%d article.id=%d",
+                    "CLASSIFICATION_UNRESOLVABLE ingestion_id=%d article.id=%d",
                     ingestion_id, staged_article.id,
                 )
                 continue
@@ -172,15 +182,23 @@ class AutoClassifyService:
                     review_status="pending",
                     created_by=created_by,
                 )
+                self._write_audit_log(
+                    event_type="ARTICLE_CLASSIFIED_NEW",
+                    staged=staged_article,
+                    ingestion_id=ingestion_id,
+                    action_by=created_by,
+                    new_value={"title": staged_article.title, "epmc_id": staged_article.epmc_id},
+                )
                 logger.info(
                     "CLASSIFICATION_NEW epmc_id=%s ingestion_id=%d",
                     staged_article.epmc_id or staged_article.doi, ingestion_id,
                 )
+
             else:
                 # ---- UNCHANGED or CHANGED ------------------------------
-                diff = self._compute_diff(prod_article, staged_article)
+                full_diff = self._compute_diff(prod_article, staged_article)
 
-                if not diff:
+                if not full_diff:
                     # UNCHANGED
                     result.unchanged_count += 1
                     result.auto_approved_count += 1
@@ -194,43 +212,110 @@ class AutoClassifyService:
                         review_status="approved",
                         created_by=created_by,
                     )
+                    self._write_audit_log(
+                        event_type="ARTICLE_CLASSIFIED_UNCHANGED",
+                        staged=staged_article,
+                        ingestion_id=ingestion_id,
+                        action_by=created_by,
+                    )
                     logger.debug(
                         "CLASSIFICATION_UNCHANGED epmc_id=%s ingestion_id=%d",
                         staged_article.epmc_id or staged_article.doi, ingestion_id,
                     )
                 else:
-                    # CHANGED — check auto-approve rules
-                    result.changed_count += 1
-                    auto_approved, approve_reason = self._check_auto_approve(diff)
+                    # Filter out fields already covered by active known divergences
+                    effective_diff = self._filter_known_divergences(
+                        staged_article.epmc_id, staged_article.doi, full_diff
+                    )
 
-                    if auto_approved:
+                    if not effective_diff:
+                        # All changed fields are known/accepted divergences — suppress
+                        result.changed_count += 1
+                        result.known_divergence_count += 1
                         result.auto_approved_count += 1
-                        review_status = "approved"
+                        self._write_review(
+                            ingestion_id=ingestion_id,
+                            staged=staged_article,
+                            review_type="changed",
+                            diff=full_diff,
+                            auto_approved=True,
+                            auto_approve_reason="known_divergences",
+                            review_status="approved",
+                            created_by=created_by,
+                        )
+                        self._write_audit_log(
+                            event_type="ARTICLE_CLASSIFIED_KNOWN_DIVERGENCE",
+                            staged=staged_article,
+                            ingestion_id=ingestion_id,
+                            action_by=created_by,
+                            new_value={"suppressed_fields": list(full_diff.keys())},
+                        )
+                        logger.info(
+                            "CLASSIFICATION_KNOWN_DIVERGENCE epmc_id=%s ingestion_id=%d fields=%s",
+                            staged_article.epmc_id or staged_article.doi,
+                            ingestion_id,
+                            list(full_diff.keys()),
+                        )
                     else:
-                        result.pending_review_count += 1
-                        review_status = "pending"
+                        # CHANGED — check auto-approve rules against effective diff
+                        result.changed_count += 1
+                        auto_approved, approve_reason = self._check_auto_approve(effective_diff)
 
-                    self._write_review(
-                        ingestion_id=ingestion_id,
-                        staged=staged_article,
-                        review_type="changed",
-                        diff=diff,
-                        auto_approved=auto_approved,
-                        auto_approve_reason=approve_reason,
-                        review_status=review_status,
-                        created_by=created_by,
-                    )
-                    logger.info(
-                        "CLASSIFICATION_CHANGED epmc_id=%s ingestion_id=%d fields=%s auto_approved=%s",
-                        staged_article.epmc_id or staged_article.doi,
-                        ingestion_id,
-                        list(diff.keys()),
-                        auto_approved,
-                    )
+                        if auto_approved:
+                            result.auto_approved_count += 1
+                            review_status = "approved"
+                        else:
+                            result.pending_review_count += 1
+                            review_status = "pending"
+
+                        self._write_review(
+                            ingestion_id=ingestion_id,
+                            staged=staged_article,
+                            review_type="changed",
+                            diff=effective_diff,
+                            auto_approved=auto_approved,
+                            auto_approve_reason=approve_reason,
+                            review_status=review_status,
+                            created_by=created_by,
+                        )
+                        self._write_audit_log(
+                            event_type="ARTICLE_CLASSIFIED_CHANGED",
+                            staged=staged_article,
+                            ingestion_id=ingestion_id,
+                            action_by=created_by,
+                            old_value={f: effective_diff[f]["old"] for f in effective_diff},
+                            new_value={f: effective_diff[f]["new"] for f in effective_diff},
+                            comment=f"auto_approved={auto_approved}",
+                        )
+                        logger.info(
+                            "CLASSIFICATION_CHANGED epmc_id=%s ingestion_id=%d fields=%s auto_approved=%s",
+                            staged_article.epmc_id or staged_article.doi,
+                            ingestion_id,
+                            list(effective_diff.keys()),
+                            auto_approved,
+                        )
 
         self.staging_db.flush()
 
-        # TODO Step 5: audit log events
+        # Summary audit log for the full run
+        self._write_audit_log(
+            event_type="INGESTION_CLASSIFICATION_COMPLETE",
+            staged=None,
+            ingestion_id=ingestion_id,
+            action_by=created_by,
+            new_value={
+                "total_pulled": result.total_pulled,
+                "new_count": result.new_count,
+                "unchanged_count": result.unchanged_count,
+                "changed_count": result.changed_count,
+                "known_divergence_count": result.known_divergence_count,
+                "auto_approved_count": result.auto_approved_count,
+                "pending_review_count": result.pending_review_count,
+                "unresolvable_count": result.unresolvable_count,
+            },
+        )
+        self.staging_db.flush()
+
         # TODO Step 6: write ingestion counts
 
         logger.info(
@@ -271,6 +356,86 @@ class AutoClassifyService:
         self.staging_db.add(review)
 
     # ------------------------------------------------------------------
+    # Audit log writer
+    # ------------------------------------------------------------------
+
+    def _write_audit_log(
+        self,
+        event_type: str,
+        staged: Optional[PMCArticle],
+        ingestion_id: int,
+        action_by: str = "system",
+        old_value: Optional[Dict[str, Any]] = None,
+        new_value: Optional[Dict[str, Any]] = None,
+        comment: Optional[str] = None,
+    ) -> None:
+        log = AuditLog(
+            event_type=event_type,
+            entity_type="pmc_article" if staged is not None else "ingestion",
+            entity_id=str(staged.id) if staged is not None else str(ingestion_id),
+            epmc_id=staged.epmc_id if staged is not None else None,
+            doi=staged.doi if staged is not None else None,
+            ingestion_id=ingestion_id,
+            old_value=old_value,
+            new_value=new_value,
+            comment=comment,
+            action_by=action_by,
+            action_at=datetime.now(timezone.utc),
+        )
+        self.staging_db.add(log)
+
+    # ------------------------------------------------------------------
+    # Known divergence filter
+    # ------------------------------------------------------------------
+
+    def _filter_known_divergences(
+        self,
+        epmc_id: Optional[str],
+        doi: Optional[str],
+        diff: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """
+        Remove fields from diff that are already covered by an active known_divergence.
+
+        A field is suppressed when:
+          - known_divergences has an active row for this article + field_path
+          - the epmc_value on that row matches the incoming new value from EPMC
+
+        If EPMC starts sending a different value than the one we previously
+        rejected, the divergence no longer suppresses — it surfaces for review.
+        """
+        if not diff:
+            return diff
+
+        query = select(KnownDivergence).where(KnownDivergence.active.is_(True))
+        if epmc_id:
+            query = query.where(KnownDivergence.epmc_id == epmc_id)
+        elif doi:
+            query = query.where(KnownDivergence.doi == doi)
+        else:
+            return diff
+
+        known = self.staging_db.execute(query).scalars().all()
+        if not known:
+            return diff
+
+        known_index: Dict[str, KnownDivergence] = {kd.field_path: kd for kd in known}
+
+        filtered: Dict[str, Any] = {}
+        for field_name, change in diff.items():
+            kd = known_index.get(field_name)
+            if kd and str(change["new"]) == str(kd.epmc_value):
+                # EPMC is still sending the same value we already rejected — suppress
+                logger.debug(
+                    "KNOWN_DIVERGENCE_SUPPRESSED epmc_id=%s field=%s epmc_value=%s",
+                    epmc_id or doi, field_name, kd.epmc_value,
+                )
+                continue
+            filtered[field_name] = change
+
+        return filtered
+
+    # ------------------------------------------------------------------
     # Diff helpers
     # ------------------------------------------------------------------
 
@@ -283,11 +448,11 @@ class AutoClassifyService:
         Empty dict means no differences.
         """
         diff: Dict[str, Any] = {}
-        for field in DIFFABLE_FIELDS:
-            old_val = getattr(prod, field, None)
-            new_val = getattr(staged, field, None)
+        for field_name in DIFFABLE_FIELDS:
+            old_val = getattr(prod, field_name, None)
+            new_val = getattr(staged, field_name, None)
             if old_val != new_val:
-                diff[field] = {"old": _serialise(old_val), "new": _serialise(new_val)}
+                diff[field_name] = {"old": _serialise(old_val), "new": _serialise(new_val)}
         return diff
 
     def _check_auto_approve(
@@ -305,8 +470,8 @@ class AutoClassifyService:
         rule_index: Dict[str, AutoApproveRule] = {r.field: r for r in AUTO_APPROVE_RULES}
         matched_labels: List[str] = []
 
-        for field, change in diff.items():
-            rule = rule_index.get(field)
+        for field_name, change in diff.items():
+            rule = rule_index.get(field_name)
             if rule is None or not rule.applies(change["old"], change["new"]):
                 return False, None
             matched_labels.append(rule.label)
