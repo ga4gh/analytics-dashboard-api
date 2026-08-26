@@ -1101,4 +1101,40 @@
     <changeSet author="dashrath (generated)" id="1784803951223-96">
         <addForeignKeyConstraint baseColumnNames="repo_id" baseTableName="repo_entity_actions" constraintName="repo_entity_actions_repo_id_fkey" deferrable="false" initiallyDeferred="false" onDelete="NO ACTION" onUpdate="NO ACTION" referencedColumnNames="id" referencedTableName="github_repos" validate="true"/>
     </changeSet>
+
+    <!-- Curation pipeline: ingestion run metadata columns -->
+    <changeSet author="dashrath" id="dc-20260820-001">
+        <addColumn tableName="ingestion">
+            <column name="run_type" type="varchar(10)" defaultValue="full">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+        <sql>UPDATE ingestion SET run_type = 'full' WHERE run_type IS NULL</sql>
+    </changeSet>
+    <changeSet author="dashrath" id="dc-20260820-002">
+        <addColumn tableName="ingestion">
+            <column name="total_pulled" type="integer">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+    </changeSet>
+    <changeSet author="dashrath" id="dc-20260820-003">
+        <addColumn tableName="ingestion">
+            <column name="auto_approved_count" type="integer" defaultValueNumeric="0">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+    </changeSet>
+    <changeSet author="dashrath" id="dc-20260820-004">
+        <addColumn tableName="ingestion">
+            <column name="pending_review_count" type="integer" defaultValueNumeric="0">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <!-- Fix typo: reviewd_at -> reviewed_at in pmc_review -->
+    <changeSet author="dashrath" id="dc-20260820-005">
+        <renameColumn tableName="pmc_review" oldColumnName="reviewd_at" newColumnName="reviewed_at" columnDataType="timestamp with time zone"/>
+    </changeSet>
 </databaseChangeLog>

@@ -9,13 +9,18 @@ from src.models.citation import Citation as CitationModel, CitationList, TotalCi
 from src.services.epmc import EPMCService as EPMCService
 from src.repositories.epmc import EPMCRepo as EPMCRepo
 from src.services.grant import GrantService as Grant
-from src.config.session import get_session
+from src.config.session import get_session, get_staging_db
 
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/epmc", tags=["Articles"])
 
 def get_epmc_repo(db: Session = Depends(get_session)) -> EPMCRepo:
+    """Production DB — used by all dashboard/read endpoints."""
+    return EPMCRepo(db)
+
+def get_staging_epmc_repo(db: Session = Depends(get_staging_db)) -> EPMCRepo:
+    """Staging DB — used by ingestion endpoints."""
     return EPMCRepo(db)
 
 
@@ -168,7 +173,7 @@ class EPMC:
         @self.router.post("/epmc/ingest-pmc-data", response_model=list[PMCArticleFull])
         async def ingest_pmc_data(
             keyword: str = Body(..., embed=True),
-            repo: EPMCRepo = Depends(get_epmc_repo),
+            repo: EPMCRepo = Depends(get_staging_epmc_repo),
         ):
             service = EPMCService(repo)
             grant_service = Grant(repo)
@@ -204,7 +209,7 @@ class EPMC:
         @self.router.post("/epmc/ingest-pmc-grants")
         async def ingest_pmc_grants(
             keyword: str = Body(..., embed=True),
-            repo: EPMCRepo = Depends(get_epmc_repo),
+            repo: EPMCRepo = Depends(get_staging_epmc_repo),
         ):
             """Ingest grants from Europe PMC for a given keyword using GrantService.create_grants."""
             grant_service = Grant(repo)
@@ -232,7 +237,7 @@ class EPMC:
         @self.router.post("/epmc/ingest-pmc-references")
         async def ingest_pmc_references(
             use_db_articles: bool = True,
-            repo: EPMCRepo = Depends(get_epmc_repo),
+            repo: EPMCRepo = Depends(get_staging_epmc_repo),
         ):
             """Ingest references for all articles in the database using EPMCService.insert_references."""
             service = EPMCService(repo)

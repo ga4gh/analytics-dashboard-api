@@ -28,6 +28,8 @@ from .routers.epmc import EPMC as EPMCRouter
 from .routers.github import GithubRepoRouter
 from .routers.health import router as health_router
 from .routers.pypi import Pypi as PypiRouter
+from .routers.debug import router as debug_router
+from .routers.staging import router as staging_router
 from .routers.summary import router as summary_router
 from .services.github import GithubRepos as GithubReposService
 from .services.pypi import Pypi as PypiService
@@ -87,6 +89,8 @@ def main() -> FastAPI:
     app.include_router(epmc_router.router)
     app.include_router(health_router)
     app.include_router(summary_router)
+    app.include_router(staging_router)
+    app.include_router(debug_router)
 
     return app
 
