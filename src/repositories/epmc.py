@@ -762,6 +762,10 @@ class EPMCRepo:
         except Exception:
             logger.warning("Could not parse max ingestion version: %r", max_ver)
             return 0
+
+    def get_last_ingestion_date(self) -> Optional[datetime]:
+        """Return the most recent ingested_at timestamp, or None if no runs exist."""
+        return self.db.query(func.max(Ingestion.ingested_at)).scalar()
         
     def get_all_latest_entries(self, pm_id: Optional[str] = None, limit: int = 100, skip: int = 0) -> dict[str, list[Any]]:
         """

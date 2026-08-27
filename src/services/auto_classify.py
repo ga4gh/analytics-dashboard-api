@@ -3,11 +3,12 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from sqlalchemy import select
+from sqlalchemy import select, update as sa_update
 from sqlalchemy.orm import Session
 
 from src.models.entities.audit_log import AuditLog
 from src.models.entities.enums import AuditEventType
+from src.models.entities.ingestion import Ingestion
 from src.models.entities.known_divergence import KnownDivergence
 from src.models.entities.pmc_article import PMCArticle
 from src.models.entities.pmc_review import PMCReview
@@ -317,7 +318,21 @@ class AutoClassifyService:
         )
         self.staging_db.flush()
 
-        # TODO Step 6: write ingestion counts
+        # Write classification counts back to the ingestion row
+        self.staging_db.execute(
+            sa_update(Ingestion)
+            .where(Ingestion.id == ingestion_id)
+            .values(
+                total_pulled=result.total_pulled,
+                new_count=result.new_count,
+                unchanged_count=result.unchanged_count,
+                changed_count=result.changed_count,
+                auto_approved_count=result.auto_approved_count,
+                pending_review_count=result.pending_review_count,
+                unresolvable_count=result.unresolvable_count,
+            )
+        )
+        self.staging_db.flush()
 
         logger.info(
             "AutoClassifyService: classification complete ingestion_id=%d result=%s",
