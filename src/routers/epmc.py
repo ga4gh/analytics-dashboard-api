@@ -1,4 +1,5 @@
 import logging
+from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends, Body
 from sqlalchemy.orm import Session
 import json
@@ -10,9 +11,7 @@ from src.services.epmc import EPMCService as EPMCService
 from src.repositories.epmc import EPMCRepo as EPMCRepo
 from src.services.grant import GrantService as Grant
 from src.services.auto_classify import AutoClassifyService
-from src.models.entities.audit_log import AuditLog
-from src.models.entities.enums import AuditEventType
-from src.config.session import get_session, get_staging_db, get_production_db
+from src.config.session import get_session, get_staging_db
 
 
 logger = logging.getLogger(__name__)
@@ -176,98 +175,31 @@ class EPMC:
         @self.router.post("/epmc/ingest-pmc-data", response_model=list[PMCArticleFull])
         async def ingest_pmc_data(
             keyword: str = Body(..., embed=True),
+            from_date: Optional[str] = Body(None, embed=True),
+            to_date: Optional[str] = Body(None, embed=True),
             staging_repo: EPMCRepo = Depends(get_staging_epmc_repo),
             production_repo: EPMCRepo = Depends(get_epmc_repo),
         ):
             service = EPMCService(staging_repo)
             grant_service = Grant(staging_repo)
 
-            # INGESTION_STARTED — fired before pull begins (no ingestion_id yet)
-            staging_repo.db.add(AuditLog(
-                event_type=AuditEventType.INGESTION_STARTED,
-                entity_type="ingestion",
-                new_value={"keyword": keyword, "run_type": "full"},
-                action_by="system",
-                action_at=datetime.now(timezone.utc),
-            ))
-            staging_repo.db.flush()
-
+            run_type = "delta" if from_date else service._detect_run_type()[0]
+            service.record_ingestion_started(keyword, run_type=run_type)
             try:
-                logger.info("Ingesting PMC data for keyword: %s", keyword)
-                result = service.insert_articles_by_keyword(keyword, created_by="system")
-                references_result = service.insert_references(created_by="system")
-                grant_result = grant_service.create_grants(keyword)
+                logger.info("Ingesting PMC data for keyword: %s run_type=%s", keyword, run_type)
+                service.insert_articles_by_keyword(keyword, created_by="system", from_date=from_date, to_date=to_date)
+                service.insert_references(created_by="system")
+                grant_service.create_grants(keyword)
 
-                # Classification — compare staged articles against production
-                classify_service = AutoClassifyService(
-                    staging_db=staging_repo.db,
-                    production_db=production_repo.db,
-                )
+                classify_service = AutoClassifyService(staging_repo, production_repo)
                 classify_result = classify_service.classify_ingestion_run(
                     ingestion_id=service.ingestion_id,
                     created_by="system",
                 )
-
-                # INGESTION_COMPLETED
-                staging_repo.db.add(AuditLog(
-                    event_type=AuditEventType.INGESTION_COMPLETED,
-                    entity_type="ingestion",
-                    entity_id=str(service.ingestion_id),
-                    ingestion_id=service.ingestion_id,
-                    new_value={
-                        "keyword": keyword,
-                        "articles": result.get("articles") if isinstance(result, dict) else result,
-                        "total_pulled": classify_result.total_pulled,
-                        "new_count": classify_result.new_count,
-                        "unchanged_count": classify_result.unchanged_count,
-                        "changed_count": classify_result.changed_count,
-                        "auto_approved_count": classify_result.auto_approved_count,
-                        "pending_review_count": classify_result.pending_review_count,
-                        "unresolvable_count": classify_result.unresolvable_count,
-                    },
-                    action_by="system",
-                    action_at=datetime.now(timezone.utc),
-                ))
-                staging_repo.db.flush()
-
-                # File-based log (best-effort)
-                try:
-                    log_entry = {
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
-                        "keyword": keyword,
-                        "articles": result,
-                        "references": references_result,
-                        "grants": grant_result,
-                        "classify": {
-                            "total_pulled": classify_result.total_pulled,
-                            "new": classify_result.new_count,
-                            "unchanged": classify_result.unchanged_count,
-                            "changed": classify_result.changed_count,
-                            "auto_approved": classify_result.auto_approved_count,
-                            "pending_review": classify_result.pending_review_count,
-                            "unresolvable": classify_result.unresolvable_count,
-                        },
-                    }
-                    with open("ingestion_log.txt", "a", encoding="utf-8") as lf:
-                        lf.write(json.dumps(log_entry, default=str) + "\n")
-                except Exception:
-                    pass
+                service.record_ingestion_completed(service.ingestion_id, keyword, classify_result)
 
             except Exception as e:
-                # INGESTION_FAILED — best-effort, don't let this mask the original error
-                try:
-                    staging_repo.db.add(AuditLog(
-                        event_type=AuditEventType.INGESTION_FAILED,
-                        entity_type="ingestion",
-                        entity_id=str(service.ingestion_id) if service.ingestion_id else None,
-                        ingestion_id=service.ingestion_id,
-                        new_value={"error": str(e), "keyword": keyword},
-                        action_by="system",
-                        action_at=datetime.now(timezone.utc),
-                    ))
-                    staging_repo.db.flush()
-                except Exception:
-                    pass
+                service.record_ingestion_failed(service.ingestion_id, keyword, str(e))
                 raise HTTPException(status_code=500, detail=f"Ingestion failed: {e}")
 
             articles = staging_repo.get_all_articles()

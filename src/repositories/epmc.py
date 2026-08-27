@@ -12,7 +12,7 @@ import json
 
 from sqlalchemy.orm import Session, selectinload, raiseload
 from sqlalchemy.exc import OperationalError
-from sqlalchemy import func, and_, or_, select
+from sqlalchemy import func, and_, or_, select, update as sa_update
 from sqlalchemy.sql import literal_column
 from src.config.constants import COUNTRIES, ALIASES
 
@@ -23,6 +23,9 @@ from src.models.entities.citations import Citation, Reference
 from sqlalchemy import func
 from src.models.entities.record import Record
 from src.models.entities.ingestion import Ingestion
+from src.models.entities.audit_log import AuditLog
+from src.models.entities.pmc_review import PMCReview
+from src.models.entities.known_divergence import KnownDivergence
 class EPMCRepo:
     def __init__(self, db: Session):
         
@@ -764,8 +767,77 @@ class EPMCRepo:
             return 0
 
     def get_last_ingestion_date(self) -> Optional[datetime]:
-        """Return the most recent ingested_at timestamp, or None if no runs exist."""
-        return self.db.query(func.max(Ingestion.ingested_at)).scalar()
+        """Return the most recent ingested_at timestamp of a SUCCESSFUL run.
+
+        A run is considered successful when total_pulled is not NULL — that value
+        is written by update_ingestion_counts() only after classification completes.
+        Failed runs leave total_pulled as NULL and are excluded so their committed
+        ingestion row does not corrupt the next delta window.
+        """
+        return (
+            self.db.query(func.max(Ingestion.ingested_at))
+            .filter(Ingestion.total_pulled.isnot(None))
+            .scalar()
+        )
+
+    def update_ingestion_counts(self, ingestion_id: int, counts: dict) -> None:
+        self.db.execute(
+            sa_update(Ingestion).where(Ingestion.id == ingestion_id).values(**counts)
+        )
+        self.db.flush()
+
+    # ------------------------------------------------------------------
+    # Curation — audit log
+    # ------------------------------------------------------------------
+
+    def insert_audit_log(self, audit_log: AuditLog) -> int:
+        self.db.add(audit_log)
+        self.db.flush()
+        return audit_log.id
+
+    # ------------------------------------------------------------------
+    # Curation — review
+    # ------------------------------------------------------------------
+
+    def insert_review(self, review: PMCReview) -> int:
+        self.db.add(review)
+        self.db.flush()
+        return review.id
+
+    # ------------------------------------------------------------------
+    # Curation — article lookups (used by AutoClassifyService)
+    # ------------------------------------------------------------------
+
+    def get_staged_articles(self, ingestion_id: int) -> List[PMCArticle]:
+        """Return all pmc_articles rows written in a given ingestion run."""
+        return (
+            self.db.execute(select(PMCArticle).where(PMCArticle.ingestion_id == ingestion_id))
+            .scalars()
+            .all()
+        )
+
+    def get_article_by_epmc_id(self, epmc_id: str) -> Optional[PMCArticle]:
+        return self.db.execute(
+            select(PMCArticle).where(PMCArticle.epmc_id == epmc_id)
+        ).scalar_one_or_none()
+
+    def get_article_by_doi(self, doi: str) -> Optional[PMCArticle]:
+        return self.db.execute(
+            select(PMCArticle).where(PMCArticle.doi == doi)
+        ).scalar_one_or_none()
+
+    def get_active_known_divergences(
+        self, epmc_id: Optional[str], doi: Optional[str]
+    ) -> List[KnownDivergence]:
+        """Return active known_divergence rows for a given article identity."""
+        if not epmc_id and not doi:
+            return []
+        query = select(KnownDivergence).where(KnownDivergence.active.is_(True))
+        if epmc_id:
+            query = query.where(KnownDivergence.epmc_id == epmc_id)
+        else:
+            query = query.where(KnownDivergence.doi == doi)
+        return self.db.execute(query).scalars().all()
         
     def get_all_latest_entries(self, pm_id: Optional[str] = None, limit: int = 100, skip: int = 0) -> dict[str, list[Any]]:
         """

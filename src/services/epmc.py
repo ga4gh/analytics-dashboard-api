@@ -1,5 +1,6 @@
 import logging
-from typing import Counter, List
+from datetime import datetime
+from typing import Any, Counter, List, Optional
 from src.clients.epmc import EPMCClient
 from src.models.citation import CitationOverYears, TotalCitations
 from src.models.entities.pmc_article import PMCArticle
@@ -8,6 +9,8 @@ from src.models.entities.extras import Grant, FullText, Keyword
 from src.models.entities.citations import Citation, Reference
 from src.models.entities.record import Record, RecordType, Source, Status, ProductType
 from src.models.entities.ingestion import Ingestion
+from src.models.entities.audit_log import AuditLog
+from src.models.entities.enums import AuditEventType
 from src.repositories.epmc import EPMCRepo
 
 logger = logging.getLogger(__name__)
@@ -28,6 +31,18 @@ class EPMCService:
         if value is None:
             return []
         return value if isinstance(value, list) else [value]
+
+    def _detect_run_type(self) -> tuple:
+        """
+        Auto-detect whether the next ingestion should be a full or delta pull.
+
+        Returns (run_type, from_date) where from_date is a YYYY-MM-DD string
+        for delta runs, or None for full runs.
+        """
+        last_date = self.epmc_repo.get_last_ingestion_date()
+        if last_date is None:
+            return "full", None
+        return "delta", last_date.strftime("%Y-%m-%d")
 
     @staticmethod
     def _positive_int(value):
@@ -71,17 +86,95 @@ class EPMCService:
         except Exception:
             logger.warning("Could not fetch highest ingestion version; defaulting to 1")
             return 1
-        
-    def insert_articles_by_keyword(self, keyword: str, created_by: str) -> dict[str, int]:
 
-        json_response = self.epmc_client.get_articles(keyword)
+    # ------------------------------------------------------------------
+    # Ingestion lifecycle audit events
+    # ------------------------------------------------------------------
+
+    def record_ingestion_started(self, keyword: str, run_type: str = "full", created_by: str = "system") -> None:
+        self.epmc_repo.insert_audit_log(AuditLog(
+            event_type=AuditEventType.INGESTION_STARTED,
+            entity_type="ingestion",
+            new_value={"keyword": keyword, "run_type": run_type},
+            action_by=created_by,
+            action_at=datetime.utcnow(),
+        ))
+
+    def record_ingestion_completed(
+        self, ingestion_id: int, keyword: str, classify_result: Any, created_by: str = "system"
+    ) -> None:
+        self.epmc_repo.insert_audit_log(AuditLog(
+            event_type=AuditEventType.INGESTION_COMPLETED,
+            entity_type="ingestion",
+            entity_id=str(ingestion_id),
+            ingestion_id=ingestion_id,
+            new_value={
+                "keyword": keyword,
+                "total_pulled": classify_result.total_pulled,
+                "new_count": classify_result.new_count,
+                "unchanged_count": classify_result.unchanged_count,
+                "changed_count": classify_result.changed_count,
+                "auto_approved_count": classify_result.auto_approved_count,
+                "pending_review_count": classify_result.pending_review_count,
+                "unresolvable_count": classify_result.unresolvable_count,
+            },
+            action_by=created_by,
+            action_at=datetime.utcnow(),
+        ))
+
+    def record_ingestion_failed(
+        self, ingestion_id: Optional[int], keyword: str, error: str, created_by: str = "system"
+    ) -> None:
+        try:
+            self.epmc_repo.insert_audit_log(AuditLog(
+                event_type=AuditEventType.INGESTION_FAILED,
+                entity_type="ingestion",
+                entity_id=str(ingestion_id) if ingestion_id else None,
+                ingestion_id=ingestion_id,
+                new_value={"error": error, "keyword": keyword},
+                action_by=created_by,
+                action_at=datetime.utcnow(),
+            ))
+        except Exception:
+            logger.exception("Failed to write INGESTION_FAILED audit log")
+
+    def insert_articles_by_keyword(
+        self,
+        keyword: str,
+        created_by: str,
+        from_date: Optional[str] = None,
+        to_date: Optional[str] = None,
+    ) -> dict[str, int]:
+        # Explicit date range → always a delta pull, no auto-detect needed.
+        # No dates → auto-detect: delta if prior ingestion exists, full otherwise.
+        if from_date:
+            run_type = "delta"
+            effective_to = to_date or datetime.utcnow().strftime("%Y-%m-%d")
+            logger.info(
+                "Delta pull (explicit): keyword=%s from_date=%s to_date=%s",
+                keyword, from_date, effective_to,
+            )
+            json_response = self.epmc_client.get_delta_articles(keyword, from_date, effective_to)
+        else:
+            run_type, detected_from = self._detect_run_type()
+            effective_to = datetime.utcnow().strftime("%Y-%m-%d")
+            if run_type == "delta":
+                logger.info(
+                    "Delta pull (auto): keyword=%s from_date=%s to_date=%s",
+                    keyword, detected_from, effective_to,
+                )
+                json_response = self.epmc_client.get_delta_articles(keyword, detected_from, effective_to)
+            else:
+                logger.info("Full pull: keyword=%s", keyword)
+                json_response = self.epmc_client.get_articles(keyword)
+
         results = json_response.get("resultList", {}).get("result", []) or []
 
         ingestion_version = self._next_ingestion_version()
         ingestion_model = self.epmc_client.create_ingestion(
             ingestion_version,
             keyword=keyword,
-            run_type="full",
+            run_type=run_type,
             created_by=created_by,
         )
         ingestion_id = self.epmc_repo.insert_or_update(ingestion_model, Ingestion, False)
@@ -226,8 +319,11 @@ class EPMCService:
         else:
             # Use articles from recent ingestion (self.ingested_articles key=pm_id, value=internal_id)
             article_map = self.ingested_articles
-            if not article_map:
+            if article_map is None:
                 raise ValueError("Ingestion ID is not set and use_db_articles is False. Please run insert_articles_by_keyword first or set use_db_articles=True.")
+            if not article_map:
+                logger.info("insert_references: no articles in this ingestion run, skipping")
+                return counts
 
         # Create ingestion if needed (for standalone reference ingestion with no prior article run)
         if self.ingestion_id is None:

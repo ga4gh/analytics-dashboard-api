@@ -1,17 +1,13 @@
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from sqlalchemy import select, update as sa_update
-from sqlalchemy.orm import Session
-
 from src.models.entities.audit_log import AuditLog
 from src.models.entities.enums import AuditEventType
-from src.models.entities.ingestion import Ingestion
-from src.models.entities.known_divergence import KnownDivergence
 from src.models.entities.pmc_article import PMCArticle
 from src.models.entities.pmc_review import PMCReview
+from src.repositories.epmc import EPMCRepo
 
 logger = logging.getLogger(__name__)
 
@@ -128,15 +124,14 @@ class AutoClassifyService:
     database and classifies each record as NEW, UNCHANGED, CHANGED, or
     KNOWN_DIVERGENCE.
 
-    Reads from staging_db (ingestion snapshot).
-    Reads from production_db (current curated state).
-    Writes pmc_review rows and audit_log events to staging_db.
-    Updates the ingestion row counts in staging_db at completion.
+    All DB reads/writes go through the repo layer — no raw session access.
+    staging_repo  — reads staged articles and known divergences; writes reviews and audit logs.
+    production_repo — reads curated production articles for comparison.
     """
 
-    def __init__(self, staging_db: Session, production_db: Session) -> None:
-        self.staging_db = staging_db
-        self.production_db = production_db
+    def __init__(self, staging_repo: EPMCRepo, production_repo: EPMCRepo) -> None:
+        self.staging_repo = staging_repo
+        self.production_repo = production_repo
 
     # ------------------------------------------------------------------
     # Public entry point
@@ -150,7 +145,7 @@ class AutoClassifyService:
         result = ClassifyResult(ingestion_id=ingestion_id)
         logger.info("AutoClassifyService: starting classification for ingestion_id=%d", ingestion_id)
 
-        staged = self._load_staged_articles(ingestion_id)
+        staged = self.staging_repo.get_staged_articles(ingestion_id)
         result.total_pulled = len(staged)
 
         for staged_article in staged:
@@ -220,18 +215,18 @@ class AutoClassifyService:
                         ingestion_id=ingestion_id,
                         action_by=created_by,
                     )
-                    logger.debug(
+                    logger.info(
                         "CLASSIFICATION_UNCHANGED epmc_id=%s ingestion_id=%d",
                         staged_article.epmc_id or staged_article.doi, ingestion_id,
                     )
                 else:
-                    # Filter out fields already covered by active known divergences
+                    # Filter out fields covered by active known divergences
                     effective_diff = self._filter_known_divergences(
                         staged_article.epmc_id, staged_article.doi, full_diff
                     )
 
                     if not effective_diff:
-                        # All changed fields are known/accepted divergences — suppress
+                        # All changed fields are known divergences — suppress
                         result.changed_count += 1
                         result.known_divergence_count += 1
                         result.auto_approved_count += 1
@@ -259,7 +254,7 @@ class AutoClassifyService:
                             list(full_diff.keys()),
                         )
                     else:
-                        # CHANGED — check auto-approve rules against effective diff
+                        # CHANGED — check auto-approve rules
                         result.changed_count += 1
                         auto_approved, approve_reason = self._check_auto_approve(effective_diff)
 
@@ -297,8 +292,6 @@ class AutoClassifyService:
                             auto_approved,
                         )
 
-        self.staging_db.flush()
-
         # Summary audit log for the full run
         self._write_audit_log(
             event_type=AuditEventType.INGESTION_CLASSIFICATION_COMPLETE,
@@ -316,23 +309,17 @@ class AutoClassifyService:
                 "unresolvable_count": result.unresolvable_count,
             },
         )
-        self.staging_db.flush()
 
         # Write classification counts back to the ingestion row
-        self.staging_db.execute(
-            sa_update(Ingestion)
-            .where(Ingestion.id == ingestion_id)
-            .values(
-                total_pulled=result.total_pulled,
-                new_count=result.new_count,
-                unchanged_count=result.unchanged_count,
-                changed_count=result.changed_count,
-                auto_approved_count=result.auto_approved_count,
-                pending_review_count=result.pending_review_count,
-                unresolvable_count=result.unresolvable_count,
-            )
-        )
-        self.staging_db.flush()
+        self.staging_repo.update_ingestion_counts(ingestion_id, {
+            "total_pulled": result.total_pulled,
+            "new_count": result.new_count,
+            "unchanged_count": result.unchanged_count,
+            "changed_count": result.changed_count,
+            "auto_approved_count": result.auto_approved_count,
+            "pending_review_count": result.pending_review_count,
+            "unresolvable_count": result.unresolvable_count,
+        })
 
         logger.info(
             "AutoClassifyService: classification complete ingestion_id=%d result=%s",
@@ -355,7 +342,7 @@ class AutoClassifyService:
         auto_approve_reason: Optional[str],
         review_status: str,
         created_by: str,
-    ) -> None:
+    ) -> int:
         review = PMCReview(
             ingestion_id=ingestion_id,
             staging_id=staged.id,
@@ -369,7 +356,7 @@ class AutoClassifyService:
             created_by=created_by,
             created_at=datetime.now(timezone.utc),
         )
-        self.staging_db.add(review)
+        return self.staging_repo.insert_review(review)
 
     # ------------------------------------------------------------------
     # Audit log writer
@@ -398,7 +385,7 @@ class AutoClassifyService:
             action_by=action_by,
             action_at=datetime.now(timezone.utc),
         )
-        self.staging_db.add(log)
+        self.staging_repo.insert_audit_log(log)
 
     # ------------------------------------------------------------------
     # Known divergence filter
@@ -411,37 +398,27 @@ class AutoClassifyService:
         diff: Dict[str, Any],
     ) -> Dict[str, Any]:
         """
-        Remove fields from diff that are already covered by an active known_divergence.
+        Remove fields from diff already covered by an active known_divergence.
 
         A field is suppressed when:
           - known_divergences has an active row for this article + field_path
-          - the epmc_value on that row matches the incoming new value from EPMC
+          - epmc_value matches the incoming new value from EPMC
 
-        If EPMC starts sending a different value than the one we previously
-        rejected, the divergence no longer suppresses — it surfaces for review.
+        If EPMC starts sending a different value the suppression lifts.
         """
         if not diff:
             return diff
 
-        query = select(KnownDivergence).where(KnownDivergence.active.is_(True))
-        if epmc_id:
-            query = query.where(KnownDivergence.epmc_id == epmc_id)
-        elif doi:
-            query = query.where(KnownDivergence.doi == doi)
-        else:
-            return diff
-
-        known = self.staging_db.execute(query).scalars().all()
+        known = self.staging_repo.get_active_known_divergences(epmc_id, doi)
         if not known:
             return diff
 
-        known_index: Dict[str, KnownDivergence] = {kd.field_path: kd for kd in known}
-
+        known_index = {kd.field_path: kd for kd in known}
         filtered: Dict[str, Any] = {}
+
         for field_name, change in diff.items():
             kd = known_index.get(field_name)
             if kd and str(change["new"]) == str(kd.epmc_value):
-                # EPMC is still sending the same value we already rejected — suppress
                 logger.debug(
                     "KNOWN_DIVERGENCE_SUPPRESSED epmc_id=%s field=%s epmc_value=%s",
                     epmc_id or doi, field_name, kd.epmc_value,
@@ -455,12 +432,9 @@ class AutoClassifyService:
     # Diff helpers
     # ------------------------------------------------------------------
 
-    def _compute_diff(
-        self, prod: PMCArticle, staged: PMCArticle
-    ) -> Dict[str, Any]:
+    def _compute_diff(self, prod: PMCArticle, staged: PMCArticle) -> Dict[str, Any]:
         """
-        Return a dict of fields that differ between prod and staged.
-        Format: {field: {"old": <prod_value>, "new": <staged_value>}}
+        Return {field: {"old": prod_value, "new": staged_value}} for changed fields.
         Empty dict means no differences.
         """
         diff: Dict[str, Any] = {}
@@ -471,14 +445,11 @@ class AutoClassifyService:
                 diff[field_name] = {"old": _serialise(old_val), "new": _serialise(new_val)}
         return diff
 
-    def _check_auto_approve(
-        self, diff: Dict[str, Any]
-    ) -> Tuple[bool, Optional[str]]:
+    def _check_auto_approve(self, diff: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
         """
         Returns (auto_approved, reason_label).
-        A diff is auto-approved only when EVERY changed field is covered by
-        a rule whose predicate returns True.
-        With an empty rule list (v1) this always returns (False, None).
+        Every changed field must be covered by a passing rule.
+        Empty rule list (v1) always returns (False, None).
         """
         if not AUTO_APPROVE_RULES:
             return False, None
@@ -498,46 +469,38 @@ class AutoClassifyService:
     # Match helpers
     # ------------------------------------------------------------------
 
-    def _load_staged_articles(self, ingestion_id: int) -> List[PMCArticle]:
-        """Return all pmc_articles rows written in this ingestion run."""
-        return (
-            self.staging_db.execute(
-                select(PMCArticle).where(PMCArticle.ingestion_id == ingestion_id)
-            )
-            .scalars()
-            .all()
-        )
-
-    def _find_in_production(
-        self, staged: PMCArticle
-    ) -> Tuple[Optional[PMCArticle], str]:
+    def _find_in_production(self, staged: PMCArticle) -> Tuple[Optional[PMCArticle], str]:
         """
-        Look up the staged article in the production DB.
-
         Match strategy:
-          1. epmc_id (primary — stable EPMC identifier)
-          2. doi     (fallback — used when epmc_id absent)
-          3. Neither present → (None, "unresolvable")
+          1. epmc_id  — primary stable identifier
+          2. doi      — fallback
+          3. Neither  → "unresolvable"
 
-        Returns:
-          (production_article, match_key) where match_key is one of:
-            "epmc_id"       — matched on epmc_id
-            "doi"           — matched on doi
-            "new"           — no match found (record is new to production)
-            "unresolvable"  — neither epmc_id nor doi present on staged article
+        Returns (article, match_key) where match_key is one of:
+          "epmc_id", "doi", "new", "unresolvable"
         """
         if staged.epmc_id:
-            prod = self.production_db.execute(
-                select(PMCArticle).where(PMCArticle.epmc_id == staged.epmc_id)
-            ).scalar_one_or_none()
-            return (prod, "epmc_id" if prod else "new")
+            prod = self.production_repo.get_article_by_epmc_id(staged.epmc_id)
+            match_key = "epmc_id" if prod else "new"
+            logger.info(
+                "PRODUCTION_MATCH epmc_id=%s match_key=%s found=%s",
+                staged.epmc_id, match_key, prod is not None,
+            )
+            return (prod, match_key)
 
         if staged.doi:
-            prod = self.production_db.execute(
-                select(PMCArticle).where(PMCArticle.doi == staged.doi)
-            ).scalar_one_or_none()
-            return (prod, "doi" if prod else "new")
+            prod = self.production_repo.get_article_by_doi(staged.doi)
+            match_key = "doi" if prod else "new"
+            logger.info(
+                "PRODUCTION_MATCH doi=%s match_key=%s found=%s",
+                staged.doi, match_key, prod is not None,
+            )
+            return (prod, match_key)
 
+        logger.warning(
+            "PRODUCTION_MATCH_UNRESOLVABLE staging_id=%s — no epmc_id or doi",
+            staged.id,
+        )
         return (None, "unresolvable")
 
 

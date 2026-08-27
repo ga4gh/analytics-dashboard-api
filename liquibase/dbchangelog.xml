@@ -1144,4 +1144,8 @@
             </column>
         </addColumn>
     </changeSet>
+
+    <changeSet author="dashrath" id="dc-20260827-001">
+        <addAutoIncrement tableName="pmc_review" columnName="id" columnDataType="INTEGER"/>
+    </changeSet>
 </databaseChangeLog>

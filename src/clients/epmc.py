@@ -1,6 +1,7 @@
 import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
+from urllib.parse import quote
 
 logger = logging.getLogger(__name__)
 
@@ -329,12 +330,13 @@ class EPMCClient:
         json_response = self.get_json(self.grants_url, self.get_grants_endpoint(keyword))
         return json_response
 
-    def get_articles_endpoint(self, keyword):
-        return f"search?query={keyword}&format=json&resultType=core"
+    def get_articles_endpoint(self, keyword: str) -> str:
+        return f"search?query={quote(keyword)}&format=json&resultType=core"
 
     def get_delta_articles_endpoint(self, keyword: str, from_date: str, to_date: str) -> str:
         """Build the UPDATE_DATE-filtered search URL for delta pulls."""
-        return f"search?query={keyword}%20UPDATE_DATE%3A%5B{from_date}%20TO%20{to_date}%5D&format=json&resultType=core"
+        full_query = f"({keyword}) AND UPDATE_DATE:[{from_date} TO {to_date}]"
+        return f"search?query={quote(full_query)}&format=json&resultType=core"
 
     def get_citations_endpoint(self, id, source="MED"):
         return f"{source}/{id}/citations?format=json"
@@ -374,6 +376,9 @@ class EPMCClient:
             if iters >= max_iters:
                 break
             iters += 1
+
+            if iters == 1:
+                logger.info("EPMC request: GET %s params=%s", url, params)
 
             resp = requests.get(url, headers=headers, params=params, timeout=30)
             resp.raise_for_status()
