@@ -309,14 +309,16 @@ class EPMCClient:
             rows_count=rows_count,
         )
 
-    def get_articles(self, keyword):
-        json_response = self.get_json(self.base_url, self.get_articles_endpoint(keyword))
-        return json_response
+    def get_articles(self, keyword: str) -> Dict[str, Any]:
+        endpoint = self.get_articles_endpoint(keyword)
+        logger.info("EPMC full pull: %s%s", self.base_url, endpoint)
+        return self.get_json(self.base_url, endpoint, per_page=1000)
 
     def get_delta_articles(self, keyword: str, from_date: str, to_date: str) -> Dict[str, Any]:
         """Fetch only articles updated between from_date and to_date (YYYY-MM-DD)."""
-        json_response = self.get_json(self.base_url, self.get_delta_articles_endpoint(keyword, from_date, to_date))
-        return json_response
+        endpoint = self.get_delta_articles_endpoint(keyword, from_date, to_date)
+        logger.info("EPMC delta pull: %s%s", self.base_url, endpoint)
+        return self.get_json(self.base_url, endpoint, per_page=1000)
 
     def get_references(self, id, source="MED"):
         json_response = self.get_json(self.base_url, self.get_references_endpoint(id, source=source))
@@ -378,7 +380,7 @@ class EPMCClient:
             iters += 1
 
             if iters == 1:
-                logger.info("EPMC request: GET %s params=%s", url, params)
+                logger.debug("EPMC request: GET %s params=%s", url, params)
 
             resp = requests.get(url, headers=headers, params=params, timeout=30)
             resp.raise_for_status()

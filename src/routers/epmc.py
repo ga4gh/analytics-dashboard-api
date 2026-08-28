@@ -181,25 +181,56 @@ class EPMC:
             production_repo: EPMCRepo = Depends(get_epmc_repo),
         ):
             service = EPMCService(staging_repo)
-            grant_service = Grant(staging_repo)
 
-            run_type = "delta" if from_date else service._detect_run_type()[0]
+            # ── Phase 1: Delta pull (in-memory, no DB writes) ──────────────────
+            # Determine the delta window: explicit from_date > auto-detect from last
+            # ingestion > skip (first ever run).
+            last_date = staging_repo.get_last_ingestion_date()
+            effective_from = from_date or (last_date.strftime("%Y-%m-%d") if last_date else None)
+
+            delta_epmc_ids: Optional[set] = None
+            if effective_from:
+                delta_epmc_ids = service.fetch_delta_epmc_ids(keyword, effective_from, to_date)
+
+            run_type = "full" if delta_epmc_ids is None else "full+delta"
             service.record_ingestion_started(keyword, run_type=run_type)
-            try:
-                logger.info("Ingesting PMC data for keyword: %s run_type=%s", keyword, run_type)
-                service.insert_articles_by_keyword(keyword, created_by="system", from_date=from_date, to_date=to_date)
-                service.insert_references(created_by="system")
-                grant_service.create_grants(keyword)
 
+            try:
+                # ── Phase 2: Full pull (always writes all articles to staging) ──
+                logger.info(
+                    "Ingesting PMC data: keyword=%s run_type=%s delta_ids=%s",
+                    keyword, run_type,
+                    f"{len(delta_epmc_ids)} updated articles" if delta_epmc_ids is not None else "none",
+                )
+                counts = service.insert_articles_by_keyword(keyword, created_by="system", run_type=run_type)
+                logger.info(
+                    "--- PULL COMPLETE | ingestion_id=%s articles=%d authors=%d "
+                    "affiliations=%d fulltexts=%d ---",
+                    service.ingestion_id,
+                    counts.get("articles", 0),
+                    counts.get("authors", 0),
+                    counts.get("affiliations", 0),
+                    counts.get("fulltexts", 0),
+                )
+
+                # ── Classification: uses Phase 1 delta set to drive diff ────────
+                logger.info("--- CLASSIFICATION STARTING | ingestion_id=%s ---", service.ingestion_id)
                 classify_service = AutoClassifyService(staging_repo, production_repo)
                 classify_result = classify_service.classify_ingestion_run(
                     ingestion_id=service.ingestion_id,
+                    delta_epmc_ids=delta_epmc_ids,
                     created_by="system",
                 )
                 service.record_ingestion_completed(service.ingestion_id, keyword, classify_result)
 
+                # Single commit — articles + classification + reviews + audit logs all atomic
+                staging_repo.commit_to_db()
+
             except Exception as e:
-                service.record_ingestion_failed(service.ingestion_id, keyword, str(e))
+                staging_repo.rollback()
+                # ingestion_id was rolled back — pass None so the audit log
+                # does not reference a non-existent ingestion row
+                service.record_ingestion_failed(None, keyword, str(e))
                 raise HTTPException(status_code=500, detail=f"Ingestion failed: {e}")
 
             articles = staging_repo.get_all_articles()

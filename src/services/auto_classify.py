@@ -115,6 +115,7 @@ class ClassifyResult:
     known_divergence_count: int = 0
     auto_approved_count: int = 0
     pending_review_count: int = 0
+    skipped_count: int = 0   # in production but not in delta window — no review needed
     unresolvable_count: int = 0
 
 
@@ -137,13 +138,31 @@ class AutoClassifyService:
     # Public entry point
     # ------------------------------------------------------------------
 
-    def classify_ingestion_run(self, ingestion_id: int, created_by: str = "system") -> ClassifyResult:
+    def classify_ingestion_run(
+        self,
+        ingestion_id: int,
+        delta_epmc_ids: Optional[set] = None,
+        created_by: str = "system",
+    ) -> ClassifyResult:
         """
-        Entry point. Classifies all articles written in this ingestion run.
+        Entry point. Classifies all articles written in Phase 2 (full pull).
+
+        delta_epmc_ids: set of epmc_ids returned by Phase 1 (delta pull).
+          - If an article's epmc_id is in this set → it was updated since last ingestion
+            → run field diff against production (UNCHANGED or CHANGED).
+          - If an article's epmc_id is NOT in this set and it exists in production
+            → it was not updated → skip (no review row, no diff).
+          - If None → no prior ingestion existed → same skip logic applies (baseline run).
+          - If not in production at all → NEW regardless.
+
         Returns a ClassifyResult with per-category counts.
         """
         result = ClassifyResult(ingestion_id=ingestion_id)
-        logger.info("AutoClassifyService: starting classification for ingestion_id=%d", ingestion_id)
+        logger.info(
+            "AutoClassifyService: starting classification ingestion_id=%d delta_ids=%s",
+            ingestion_id,
+            f"{len(delta_epmc_ids)} articles" if delta_epmc_ids is not None else "none (first run)",
+        )
 
         staged = self.staging_repo.get_staged_articles(ingestion_id)
         result.total_pulled = len(staged)
@@ -169,46 +188,48 @@ class AutoClassifyService:
                 # ---- NEW -----------------------------------------------
                 result.new_count += 1
                 result.pending_review_count += 1
-                self._write_review(
-                    ingestion_id=ingestion_id,
-                    staged=staged_article,
-                    review_type="new",
-                    diff=None,
-                    auto_approved=False,
-                    auto_approve_reason=None,
-                    review_status="pending",
-                    created_by=created_by,
-                )
-                self._write_audit_log(
-                    event_type=AuditEventType.ARTICLE_CLASSIFIED_NEW,
-                    staged=staged_article,
-                    ingestion_id=ingestion_id,
-                    action_by=created_by,
-                    new_value={"title": staged_article.title, "epmc_id": staged_article.epmc_id},
-                )
-                logger.info(
-                    "CLASSIFICATION_NEW epmc_id=%s ingestion_id=%d",
-                    staged_article.epmc_id or staged_article.doi, ingestion_id,
-                )
 
-            else:
-                # ---- UNCHANGED or CHANGED ------------------------------
-                full_diff = self._compute_diff(prod_article, staged_article)
-
-                if not full_diff:
-                    # UNCHANGED
-                    result.unchanged_count += 1
-                    result.auto_approved_count += 1
+                existing = self.staging_repo.get_pending_review_by_epmc_id(staged_article.epmc_id)
+                if existing:
+                    # Already in the review queue from a prior ingestion — don't duplicate.
+                    logger.info(
+                        "CLASSIFICATION_NEW_ALREADY_QUEUED epmc_id=%s review_id=%d — skipping",
+                        staged_article.epmc_id or staged_article.doi, existing.id,
+                    )
+                else:
                     self._write_review(
                         ingestion_id=ingestion_id,
                         staged=staged_article,
-                        review_type="unchanged",
+                        review_type="new",
                         diff=None,
-                        auto_approved=True,
-                        auto_approve_reason="no_changes_detected",
-                        review_status="approved",
+                        auto_approved=False,
+                        auto_approve_reason=None,
+                        review_status="pending",
                         created_by=created_by,
                     )
+                    self._write_audit_log(
+                        event_type=AuditEventType.ARTICLE_CLASSIFIED_NEW,
+                        staged=staged_article,
+                        ingestion_id=ingestion_id,
+                        action_by=created_by,
+                        new_value={"title": staged_article.title, "epmc_id": staged_article.epmc_id},
+                    )
+                    logger.info(
+                        "CLASSIFICATION_NEW epmc_id=%s ingestion_id=%d",
+                        staged_article.epmc_id or staged_article.doi, ingestion_id,
+                    )
+
+            elif delta_epmc_ids is not None and staged_article.epmc_id in delta_epmc_ids:
+                # ---- UNCHANGED or CHANGED ------------------------------
+                # Article was in the Phase 1 delta pull → it was updated since last
+                # ingestion → run field diff to determine the exact classification.
+                full_diff = self._compute_diff(prod_article, staged_article)
+
+                if not full_diff:
+                    # UNCHANGED — delta-flagged but no field changes against production.
+                    # No pmc_review row needed; audit log provides traceability.
+                    result.unchanged_count += 1
+                    result.auto_approved_count += 1
                     self._write_audit_log(
                         event_type=AuditEventType.ARTICLE_CLASSIFIED_UNCHANGED,
                         staged=staged_article,
@@ -265,16 +286,40 @@ class AutoClassifyService:
                             result.pending_review_count += 1
                             review_status = "pending"
 
-                        self._write_review(
-                            ingestion_id=ingestion_id,
-                            staged=staged_article,
-                            review_type="changed",
-                            diff=effective_diff,
-                            auto_approved=auto_approved,
-                            auto_approve_reason=approve_reason,
-                            review_status=review_status,
-                            created_by=created_by,
+                        existing = self.staging_repo.get_pending_review_by_epmc_id(
+                            staged_article.epmc_id
                         )
+                        if existing:
+                            # Refresh the stale pending row with the latest diff and
+                            # staging pointer — curator always reviews the freshest data.
+                            self.staging_repo.update_review(existing.id, {
+                                "ingestion_id": ingestion_id,
+                                "staging_id": staged_article.id,
+                                "review_type": "changed",
+                                "diff": effective_diff,
+                                "auto_approved": auto_approved,
+                                "auto_approve_reason": approve_reason,
+                                "review_status": review_status,
+                            })
+                            logger.info(
+                                "CLASSIFICATION_CHANGED_REVIEW_REFRESHED epmc_id=%s "
+                                "review_id=%d fields=%s",
+                                staged_article.epmc_id or staged_article.doi,
+                                existing.id,
+                                list(effective_diff.keys()),
+                            )
+                        else:
+                            self._write_review(
+                                ingestion_id=ingestion_id,
+                                staged=staged_article,
+                                review_type="changed",
+                                diff=effective_diff,
+                                auto_approved=auto_approved,
+                                auto_approve_reason=approve_reason,
+                                review_status=review_status,
+                                created_by=created_by,
+                            )
+
                         self._write_audit_log(
                             event_type=AuditEventType.ARTICLE_CLASSIFIED_CHANGED,
                             staged=staged_article,
@@ -282,7 +327,7 @@ class AutoClassifyService:
                             action_by=created_by,
                             old_value={f: effective_diff[f]["old"] for f in effective_diff},
                             new_value={f: effective_diff[f]["new"] for f in effective_diff},
-                            comment=f"auto_approved={auto_approved}",
+                            comment=f"auto_approved={auto_approved} refreshed={existing is not None}",
                         )
                         logger.info(
                             "CLASSIFICATION_CHANGED epmc_id=%s ingestion_id=%d fields=%s auto_approved=%s",
@@ -291,6 +336,18 @@ class AutoClassifyService:
                             list(effective_diff.keys()),
                             auto_approved,
                         )
+
+            else:
+                # ---- SKIPPED ------------------------------------------
+                # Article is in production but was NOT in the Phase 1 delta pull.
+                # It has not been updated since the last ingestion — no diff needed.
+                # No pmc_review row written; only counted for audit purposes.
+                result.skipped_count += 1
+                logger.debug(
+                    "CLASSIFICATION_SKIPPED epmc_id=%s ingestion_id=%d "
+                    "(in production, not in delta window)",
+                    staged_article.epmc_id or staged_article.doi, ingestion_id,
+                )
 
         # Summary audit log for the full run
         self._write_audit_log(
@@ -306,15 +363,17 @@ class AutoClassifyService:
                 "known_divergence_count": result.known_divergence_count,
                 "auto_approved_count": result.auto_approved_count,
                 "pending_review_count": result.pending_review_count,
+                "skipped_count": result.skipped_count,
                 "unresolvable_count": result.unresolvable_count,
             },
         )
 
-        # Write classification counts back to the ingestion row
+        # Write classification counts back to the ingestion row.
+        # skipped_count stored in unchanged_count (no dedicated DB column yet).
         self.staging_repo.update_ingestion_counts(ingestion_id, {
             "total_pulled": result.total_pulled,
             "new_count": result.new_count,
-            "unchanged_count": result.unchanged_count,
+            "unchanged_count": result.unchanged_count + result.skipped_count,
             "changed_count": result.changed_count,
             "auto_approved_count": result.auto_approved_count,
             "pending_review_count": result.pending_review_count,
@@ -322,9 +381,12 @@ class AutoClassifyService:
         })
 
         logger.info(
-            "AutoClassifyService: classification complete ingestion_id=%d result=%s",
+            "AutoClassifyService: classification complete ingestion_id=%d "
+            "total=%d new=%d unchanged=%d changed=%d skipped=%d pending_review=%d",
             ingestion_id,
-            result,
+            result.total_pulled, result.new_count,
+            result.unchanged_count, result.changed_count,
+            result.skipped_count, result.pending_review_count,
         )
         return result
 

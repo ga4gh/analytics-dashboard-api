@@ -32,17 +32,28 @@ class EPMCService:
             return []
         return value if isinstance(value, list) else [value]
 
-    def _detect_run_type(self) -> tuple:
+    def fetch_delta_epmc_ids(
+        self, keyword: str, from_date: str, to_date: Optional[str] = None
+    ) -> set:
         """
-        Auto-detect whether the next ingestion should be a full or delta pull.
+        Phase 1 — fetch delta article IDs from EPMC (in-memory only, no DB writes).
 
-        Returns (run_type, from_date) where from_date is a YYYY-MM-DD string
-        for delta runs, or None for full runs.
+        Returns the set of epmc_ids that have been updated in the given date window.
+        These IDs are passed to AutoClassifyService so only delta-flagged articles
+        are diffed against production; all other production articles are skipped.
         """
-        last_date = self.epmc_repo.get_last_ingestion_date()
-        if last_date is None:
-            return "full", None
-        return "delta", last_date.strftime("%Y-%m-%d")
+        effective_to = to_date or datetime.utcnow().strftime("%Y-%m-%d")
+        logger.info(
+            "Phase 1 — delta pull (in-memory): keyword=%s from_date=%s to_date=%s",
+            keyword, from_date, effective_to,
+        )
+        json_response = self.epmc_client.get_delta_articles(keyword, from_date, effective_to)
+        results = json_response.get("resultList", {}).get("result", []) or []
+        epmc_ids = {r.get("id") for r in results if r.get("id")}
+        logger.info(
+            "Phase 1 — delta pull complete: %d articles updated since %s", len(epmc_ids), from_date
+        )
+        return epmc_ids
 
     @staticmethod
     def _positive_int(value):
@@ -135,6 +146,7 @@ class EPMCService:
                 action_by=created_by,
                 action_at=datetime.utcnow(),
             ))
+            self.epmc_repo.commit_to_db()
         except Exception:
             logger.exception("Failed to write INGESTION_FAILED audit log")
 
@@ -142,32 +154,12 @@ class EPMCService:
         self,
         keyword: str,
         created_by: str,
-        from_date: Optional[str] = None,
-        to_date: Optional[str] = None,
+        run_type: str = "full",
     ) -> dict[str, int]:
-        # Explicit date range → always a delta pull, no auto-detect needed.
-        # No dates → auto-detect: delta if prior ingestion exists, full otherwise.
-        if from_date:
-            run_type = "delta"
-            effective_to = to_date or datetime.utcnow().strftime("%Y-%m-%d")
-            logger.info(
-                "Delta pull (explicit): keyword=%s from_date=%s to_date=%s",
-                keyword, from_date, effective_to,
-            )
-            json_response = self.epmc_client.get_delta_articles(keyword, from_date, effective_to)
-        else:
-            run_type, detected_from = self._detect_run_type()
-            effective_to = datetime.utcnow().strftime("%Y-%m-%d")
-            if run_type == "delta":
-                logger.info(
-                    "Delta pull (auto): keyword=%s from_date=%s to_date=%s",
-                    keyword, detected_from, effective_to,
-                )
-                json_response = self.epmc_client.get_delta_articles(keyword, detected_from, effective_to)
-            else:
-                logger.info("Full pull: keyword=%s", keyword)
-                json_response = self.epmc_client.get_articles(keyword)
-
+        # Phase 2 — always a full pull. Delta classification is handled separately
+        # in Phase 1 (fetch_delta_epmc_ids) before this method is called.
+        logger.info("Phase 2 — full pull: keyword=%s run_type=%s", keyword, run_type)
+        json_response = self.epmc_client.get_articles(keyword)
         results = json_response.get("resultList", {}).get("result", []) or []
 
         ingestion_version = self._next_ingestion_version()
@@ -201,6 +193,9 @@ class EPMCService:
                 article_id = self.epmc_repo.insert_or_update(article_entity, PMCArticle, is_update)
                 counts["articles"] += 1
                 self.ingested_articles[article.get("id")] = article_id
+
+                if counts["articles"] % 10 == 0:
+                    logger.info("Progress: %d/%d articles processed...", counts["articles"], len(results))
 
                 for cite in (citation_data.get("citationList") or {}).get("citation") or []:
                     existing_citation = False
@@ -275,9 +270,7 @@ class EPMCService:
             
             ingestion_model = self.epmc_client.update_ingestion(self.ingestion_id, counts["articles"])
             self.epmc_repo.update_ingestion_count(ingestion_model, Ingestion)
-            self.epmc_repo.commit_to_db()
         except Exception:
-            self.epmc_repo.rollback()
             raise
         logger.info("Article ingestion complete: %s", counts)
         return counts

@@ -804,6 +804,25 @@ class EPMCRepo:
         self.db.flush()
         return review.id
 
+    def get_pending_review_by_epmc_id(self, epmc_id: str) -> Optional[PMCReview]:
+        """Return the active pending pmc_review row for an article, if one exists."""
+        return (
+            self.db.execute(
+                select(PMCReview)
+                .where(PMCReview.epmc_id == epmc_id)
+                .where(PMCReview.review_status == "pending")
+                .order_by(PMCReview.id.desc())
+                .limit(1)
+            ).scalar_one_or_none()
+        )
+
+    def update_review(self, review_id: int, updates: dict) -> None:
+        """Overwrite fields on an existing pmc_review row (used to refresh stale pending rows)."""
+        self.db.execute(
+            sa_update(PMCReview).where(PMCReview.id == review_id).values(**updates)
+        )
+        self.db.flush()
+
     # ------------------------------------------------------------------
     # Curation — article lookups (used by AutoClassifyService)
     # ------------------------------------------------------------------
@@ -817,14 +836,27 @@ class EPMCRepo:
         )
 
     def get_article_by_epmc_id(self, epmc_id: str) -> Optional[PMCArticle]:
-        return self.db.execute(
-            select(PMCArticle).where(PMCArticle.epmc_id == epmc_id)
-        ).scalar_one_or_none()
+        # Use first() — production DB may have duplicate epmc_id rows from pre-curation
+        # data. Take the row with the highest id (most recently approved version).
+        return (
+            self.db.execute(
+                select(PMCArticle)
+                .where(PMCArticle.epmc_id == epmc_id)
+                .order_by(PMCArticle.id.desc())
+                .limit(1)
+            ).scalar_one_or_none()
+        )
 
     def get_article_by_doi(self, doi: str) -> Optional[PMCArticle]:
-        return self.db.execute(
-            select(PMCArticle).where(PMCArticle.doi == doi)
-        ).scalar_one_or_none()
+        # Same defensive approach for doi lookups.
+        return (
+            self.db.execute(
+                select(PMCArticle)
+                .where(PMCArticle.doi == doi)
+                .order_by(PMCArticle.id.desc())
+                .limit(1)
+            ).scalar_one_or_none()
+        )
 
     def get_active_known_divergences(
         self, epmc_id: Optional[str], doi: Optional[str]
