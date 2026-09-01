@@ -1,6 +1,7 @@
 import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
+from urllib.parse import quote
 
 logger = logging.getLogger(__name__)
 
@@ -28,10 +29,11 @@ class EPMCClient:
 
     def create_article(self, article_data, record_id, ingestion_id: int, created_by: str = "system", cited_by: int = 0) -> PMCArticle:
         return PMCArticle(
-            id=None,  
+            id=None,
             record_id=record_id,
             ingestion_id=ingestion_id,
             source=article_data.get("source", ""),
+            epmc_id=article_data.get("id"),
             pm_id=article_data.get("id"),
             pmc_id=article_data.get("pmcid", "") or "",
             full_text_id=((article_data.get("fullTextIdList") or {}).get("fullTextId") or ""),
@@ -282,24 +284,41 @@ class EPMCClient:
         )
     
 
-    def create_ingestion(self, version, created_by: str = "system") -> Ingestion:
+    def create_ingestion(
+        self,
+        version,
+        keyword: Optional[str] = None,
+        run_type: str = "full",
+        api_version: Optional[str] = None,
+        created_by: str = "system",
+    ) -> Ingestion:
         return Ingestion(
             id=None,
-            ingested_at=datetime.utcnow(), 
+            ingested_at=datetime.utcnow(),
+            keyword=keyword,
+            run_type=run_type,
+            api_version=api_version,
             created_by=created_by,
             created_at=datetime.utcnow(),
-            version=version
+            version=version,
         )
-    
+
     def update_ingestion(self, ingestion_id, rows_count: int) -> Ingestion:
         return Ingestion(
             id=ingestion_id,
-            rows_count=rows_count
+            rows_count=rows_count,
         )
 
-    def get_articles(self, keyword):
-        json_response = self.get_json(self.base_url, self.get_articles_endpoint(keyword))        
-        return json_response
+    def get_articles(self, keyword: str) -> Dict[str, Any]:
+        endpoint = self.get_articles_endpoint(keyword)
+        logger.info("EPMC full pull: %s%s", self.base_url, endpoint)
+        return self.get_json(self.base_url, endpoint, per_page=1000)
+
+    def get_delta_articles(self, keyword: str, from_date: str, to_date: str) -> Dict[str, Any]:
+        """Fetch only articles updated between from_date and to_date (YYYY-MM-DD)."""
+        endpoint = self.get_delta_articles_endpoint(keyword, from_date, to_date)
+        logger.info("EPMC delta pull: %s%s", self.base_url, endpoint)
+        return self.get_json(self.base_url, endpoint, per_page=1000)
 
     def get_references(self, id, source="MED"):
         json_response = self.get_json(self.base_url, self.get_references_endpoint(id, source=source))
@@ -313,8 +332,13 @@ class EPMCClient:
         json_response = self.get_json(self.grants_url, self.get_grants_endpoint(keyword))
         return json_response
 
-    def get_articles_endpoint(self, keyword):
-        return f"search?query={keyword}&format=json&resultType=core"
+    def get_articles_endpoint(self, keyword: str) -> str:
+        return f"search?query={quote(keyword)}&format=json&resultType=core"
+
+    def get_delta_articles_endpoint(self, keyword: str, from_date: str, to_date: str) -> str:
+        """Build the UPDATE_DATE-filtered search URL for delta pulls."""
+        full_query = f"({keyword}) AND UPDATE_DATE:[{from_date} TO {to_date}]"
+        return f"search?query={quote(full_query)}&format=json&resultType=core"
 
     def get_citations_endpoint(self, id, source="MED"):
         return f"{source}/{id}/citations?format=json"
@@ -354,6 +378,9 @@ class EPMCClient:
             if iters >= max_iters:
                 break
             iters += 1
+
+            if iters == 1:
+                logger.debug("EPMC request: GET %s params=%s", url, params)
 
             resp = requests.get(url, headers=headers, params=params, timeout=30)
             resp.raise_for_status()
