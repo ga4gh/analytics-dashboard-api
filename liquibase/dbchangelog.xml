@@ -1,74 +1,11 @@
 <?xml version="1.1" encoding="UTF-8" standalone="no"?>
 <databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext" xmlns:pro="http://www.liquibase.org/xml/ns/pro" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd http://www.liquibase.org/xml/ns/pro http://www.liquibase.org/xml/ns/pro/liquibase-pro-latest.xsd http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
-    <changeSet author="jadams (generated)" id="1778251364339-1">
-        <createTable tableName="affiliations">
-            <column autoIncrement="true" name="id" type="INTEGER">
-                <constraints nullable="false" primaryKey="true" primaryKeyName="affiliations_pkey"/>
-            </column>
-            <column name="author_id" type="INTEGER">
-                <constraints nullable="false"/>
-            </column>
-            <column name="institute" type="VARCHAR(128)">
-                <constraints nullable="false"/>
-            </column>
-            <column name="location" type="VARCHAR(128)"/>
-            <column name="created_by" type="VARCHAR(64)">
-                <constraints nullable="false"/>
-            </column>
-            <column defaultValueComputed="now()" name="created_at" type="TIMESTAMP WITHOUT TIME ZONE">
-                <constraints nullable="false"/>
-            </column>
-            <column name="updated_by" type="VARCHAR(64)">
-                <constraints nullable="false"/>
-            </column>
-            <column defaultValueComputed="now()" name="updated_at" type="TIMESTAMP WITHOUT TIME ZONE">
-                <constraints nullable="false"/>
-            </column>
-            <column name="deleted_by" type="VARCHAR(64)"/>
-            <column name="deleted_at" type="TIMESTAMP WITHOUT TIME ZONE"/>
-            <column name="version" type="INTEGER">
-                <constraints nullable="false"/>
-            </column>
-        </createTable>
+    <changeSet author="dashrath" id="0-custom-types">
+        <sqlFile path="schema.sql" relativeToChangelogFile="true"/>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-2">
-        <createTable tableName="affiliations_audit">
-            <column autoIncrement="true" name="audit_id" type="INTEGER">
-                <constraints nullable="false" primaryKey="true" primaryKeyName="affiliations_audit_pkey"/>
-            </column>
-            <column defaultValueComputed="now()" name="action_tstamp" type="TIMESTAMP WITH TIME ZONE">
-                <constraints nullable="false"/>
-            </column>
-            <column name="action" type="TEXT">
-                <constraints nullable="false"/>
-            </column>
-            <column name="action_by" type="VARCHAR(64)"/>
-            <column name="affiliation_id" type="INTEGER"/>
-            <column name="author_id_before" type="INTEGER"/>
-            <column name="author_id_after" type="INTEGER"/>
-            <column name="institute_before" type="VARCHAR(128)"/>
-            <column name="institute_after" type="VARCHAR(128)"/>
-            <column name="location_before" type="VARCHAR(128)"/>
-            <column name="location_after" type="VARCHAR(128)"/>
-            <column name="version_before" type="INTEGER"/>
-            <column name="version_after" type="INTEGER"/>
-            <column name="created_by_before" type="VARCHAR(64)"/>
-            <column name="created_by_after" type="VARCHAR(64)"/>
-            <column name="created_at_before" type="TIMESTAMP WITH TIME ZONE"/>
-            <column name="created_at_after" type="TIMESTAMP WITH TIME ZONE"/>
-            <column name="updated_by_before" type="VARCHAR(64)"/>
-            <column name="updated_by_after" type="VARCHAR(64)"/>
-            <column name="updated_at_before" type="TIMESTAMP WITH TIME ZONE"/>
-            <column name="updated_at_after" type="TIMESTAMP WITH TIME ZONE"/>
-            <column name="deleted_by_before" type="VARCHAR(64)"/>
-            <column name="deleted_by_after" type="VARCHAR(64)"/>
-            <column name="deleted_at_before" type="TIMESTAMP WITH TIME ZONE"/>
-            <column name="deleted_at_after" type="TIMESTAMP WITH TIME ZONE"/>
-        </createTable>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-3">
+    <changeSet author="dashrath (generated)" id="1784803951223-1">
         <createTable tableName="pypi">
-            <column autoIncrement="true" name="id" startWith="216" type="INTEGER">
+            <column autoIncrement="true" name="id" type="INTEGER">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="pypi_pkey"/>
             </column>
             <column name="record_id" type="INTEGER">
@@ -117,60 +54,7 @@
             <column name="category" type="VARCHAR"/>
         </createTable>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-4">
-        <createTable tableName="pypi_audit">
-            <column autoIncrement="true" name="audit_id" startWith="2" type="INTEGER">
-                <constraints nullable="false" primaryKey="true" primaryKeyName="pypi_audit_pkey"/>
-            </column>
-            <column defaultValueComputed="now()" name="action_tstamp" type="TIMESTAMP WITH TIME ZONE">
-                <constraints nullable="false"/>
-            </column>
-            <column name="action" type="TEXT">
-                <constraints nullable="false"/>
-            </column>
-            <column name="action_by" type="VARCHAR(64)"/>
-            <column name="pypi_id" type="INTEGER"/>
-            <column name="record_id_before" type="INTEGER"/>
-            <column name="record_id_after" type="INTEGER"/>
-            <column name="project_name_before" type="VARCHAR(128)"/>
-            <column name="project_name_after" type="VARCHAR(128)"/>
-            <column name="description_before" type="VARCHAR"/>
-            <column name="description_after" type="VARCHAR"/>
-            <column name="download_history_before" type="JSONB"/>
-            <column name="download_history_after" type="JSONB"/>
-            <column name="package_url_before" type="VARCHAR(256)"/>
-            <column name="package_url_after" type="VARCHAR(256)"/>
-            <column name="project_url_before" type="VARCHAR(256)"/>
-            <column name="project_url_after" type="VARCHAR(256)"/>
-            <column name="release_url_before" type="VARCHAR(256)"/>
-            <column name="release_url_after" type="VARCHAR(256)"/>
-            <column name="github_url_before" type="VARCHAR(256)"/>
-            <column name="github_url_after" type="VARCHAR(256)"/>
-            <column name="author_name_before" type="VARCHAR(256)"/>
-            <column name="author_name_after" type="VARCHAR(256)"/>
-            <column name="author_email_before" type="VARCHAR(256)"/>
-            <column name="author_email_after" type="VARCHAR(256)"/>
-            <column name="package_version_before" type="VARCHAR(32)"/>
-            <column name="package_version_after" type="VARCHAR(32)"/>
-            <column name="is_latest_before" type="BOOLEAN"/>
-            <column name="is_latest_after" type="BOOLEAN"/>
-            <column name="created_by_before" type="VARCHAR(64)"/>
-            <column name="created_by_after" type="VARCHAR(64)"/>
-            <column name="created_at_before" type="TIMESTAMP WITHOUT TIME ZONE"/>
-            <column name="created_at_after" type="TIMESTAMP WITHOUT TIME ZONE"/>
-            <column name="updated_by_before" type="VARCHAR(64)"/>
-            <column name="updated_by_after" type="VARCHAR(64)"/>
-            <column name="updated_at_before" type="TIMESTAMP WITHOUT TIME ZONE"/>
-            <column name="updated_at_after" type="TIMESTAMP WITHOUT TIME ZONE"/>
-            <column name="deleted_by_before" type="VARCHAR(64)"/>
-            <column name="deleted_by_after" type="VARCHAR(64)"/>
-            <column name="deleted_at_before" type="TIMESTAMP WITHOUT TIME ZONE"/>
-            <column name="deleted_at_after" type="TIMESTAMP WITHOUT TIME ZONE"/>
-            <column name="version_before" type="INTEGER"/>
-            <column name="version_after" type="INTEGER"/>
-        </createTable>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-5">
+    <changeSet author="dashrath (generated)" id="1784803951223-2">
         <createTable tableName="pypi_versions">
             <column name="id" type="INTEGER">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="pypi_versions_pkey"/>
@@ -202,48 +86,9 @@
             </column>
         </createTable>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-6">
-        <createTable tableName="pypi_versions_audit">
-            <column autoIncrement="true" name="audit_id" type="INTEGER">
-                <constraints nullable="false" primaryKey="true" primaryKeyName="pypi_versions_audit_pkey"/>
-            </column>
-            <column defaultValueComputed="now()" name="action_tstamp" type="TIMESTAMP WITH TIME ZONE">
-                <constraints nullable="false"/>
-            </column>
-            <column name="action" type="TEXT">
-                <constraints nullable="false"/>
-            </column>
-            <column name="action_by" type="VARCHAR(64)"/>
-            <column name="pypi_versions_id" type="INTEGER">
-                <constraints nullable="false"/>
-            </column>
-            <column name="python_version_before" type="VARCHAR(32)"/>
-            <column name="python_version_after" type="VARCHAR(32)"/>
-            <column name="package_version_before" type="VARCHAR(32)"/>
-            <column name="package_version_after" type="VARCHAR(32)"/>
-            <column name="release_date_before" type="TIMESTAMP WITH TIME ZONE"/>
-            <column name="release_date_after" type="TIMESTAMP WITH TIME ZONE"/>
-            <column name="download_url_before" type="VARCHAR(256)"/>
-            <column name="download_url_after" type="VARCHAR(256)"/>
-            <column name="created_by_before" type="VARCHAR(64)"/>
-            <column name="created_by_after" type="VARCHAR(64)"/>
-            <column name="created_at_before" type="TIMESTAMP WITHOUT TIME ZONE"/>
-            <column name="created_at_after" type="TIMESTAMP WITHOUT TIME ZONE"/>
-            <column name="updated_by_before" type="VARCHAR(64)"/>
-            <column name="updated_by_after" type="VARCHAR(64)"/>
-            <column name="updated_at_before" type="TIMESTAMP WITHOUT TIME ZONE"/>
-            <column name="updated_at_after" type="TIMESTAMP WITHOUT TIME ZONE"/>
-            <column name="deleted_by_before" type="VARCHAR(64)"/>
-            <column name="deleted_by_after" type="VARCHAR(64)"/>
-            <column name="deleted_at_before" type="TIMESTAMP WITHOUT TIME ZONE"/>
-            <column name="deleted_at_after" type="TIMESTAMP WITHOUT TIME ZONE"/>
-            <column name="version_before" type="INTEGER"/>
-            <column name="version_after" type="INTEGER"/>
-        </createTable>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-7">
+    <changeSet author="dashrath (generated)" id="1784803951223-3">
         <createTable tableName="github_repos">
-            <column autoIncrement="true" name="id" startWith="35" type="INTEGER">
+            <column autoIncrement="true" name="id" type="INTEGER">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="github_repos_pkey"/>
             </column>
             <column name="record_id" type="INTEGER">
@@ -322,115 +167,7 @@
             <column name="status" type="VARCHAR(32)"/>
         </createTable>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-8">
-        <createTable tableName="github_repos_audit">
-            <column autoIncrement="true" name="audit_id" startWith="1227" type="INTEGER">
-                <constraints nullable="false" primaryKey="true" primaryKeyName="github_repos_audit_pkey"/>
-            </column>
-            <column defaultValueComputed="now()" name="action_tstamp" type="TIMESTAMP WITH TIME ZONE">
-                <constraints nullable="false"/>
-            </column>
-            <column name="action" type="TEXT">
-                <constraints nullable="false"/>
-            </column>
-            <column name="action_by" type="VARCHAR(64)"/>
-            <column name="github_repo_id" type="INTEGER">
-                <constraints nullable="false"/>
-            </column>
-            <column name="name_before" type="VARCHAR(128)"/>
-            <column name="name_after" type="VARCHAR(128)"/>
-            <column name="repo_link_before" type="VARCHAR(128)"/>
-            <column name="repo_link_after" type="VARCHAR(128)"/>
-            <column name="owner_before" type="VARCHAR(128)"/>
-            <column name="owner_after" type="VARCHAR(128)"/>
-            <column name="description_before" type="VARCHAR"/>
-            <column name="description_after" type="VARCHAR"/>
-            <column name="is_fork_before" type="BOOLEAN"/>
-            <column name="is_fork_after" type="BOOLEAN"/>
-            <column name="last_updated_before" type="TIMESTAMP WITHOUT TIME ZONE"/>
-            <column name="last_updated_after" type="TIMESTAMP WITHOUT TIME ZONE"/>
-            <column name="pushed_at_before" type="TIMESTAMP WITHOUT TIME ZONE"/>
-            <column name="pushed_at_after" type="TIMESTAMP WITHOUT TIME ZONE"/>
-            <column name="is_archived_before" type="BOOLEAN"/>
-            <column name="is_archived_after" type="BOOLEAN"/>
-            <column name="license_before" type="VARCHAR(64)"/>
-            <column name="license_after" type="VARCHAR(64)"/>
-            <column name="stargazers_count_before" type="INTEGER"/>
-            <column name="stargazers_count_after" type="INTEGER"/>
-            <column name="watchers_count_before" type="INTEGER"/>
-            <column name="watchers_count_after" type="INTEGER"/>
-            <column name="forks_count_before" type="INTEGER"/>
-            <column name="forks_count_after" type="INTEGER"/>
-            <column name="open_issues_count_before" type="INTEGER"/>
-            <column name="open_issues_count_after" type="INTEGER"/>
-            <column name="network_count_before" type="INTEGER"/>
-            <column name="network_count_after" type="INTEGER"/>
-            <column name="subscribers_count_before" type="INTEGER"/>
-            <column name="subscribers_count_after" type="INTEGER"/>
-            <column name="branches_count_before" type="INTEGER"/>
-            <column name="branches_count_after" type="INTEGER"/>
-            <column name="created_by_before" type="VARCHAR(64)"/>
-            <column name="created_by_after" type="VARCHAR(64)"/>
-            <column name="created_at_before" type="TIMESTAMP WITH TIME ZONE"/>
-            <column name="created_at_after" type="TIMESTAMP WITH TIME ZONE"/>
-            <column name="updated_by_before" type="VARCHAR(64)"/>
-            <column name="updated_by_after" type="VARCHAR(64)"/>
-            <column name="updated_at_before" type="TIMESTAMP WITH TIME ZONE"/>
-            <column name="updated_at_after" type="TIMESTAMP WITH TIME ZONE"/>
-            <column name="deleted_by_before" type="VARCHAR(64)"/>
-            <column name="deleted_by_after" type="VARCHAR(64)"/>
-            <column name="deleted_at_before" type="TIMESTAMP WITH TIME ZONE"/>
-            <column name="deleted_at_after" type="TIMESTAMP WITH TIME ZONE"/>
-            <column name="version_before" type="INTEGER"/>
-            <column name="version_after" type="INTEGER"/>
-            <column name="created_on_before" type="VARCHAR"/>
-            <column name="created_on_after" type="VARCHAR"/>
-        </createTable>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-9">
-        <createTable tableName="repo_entity_actions_audit">
-            <column autoIncrement="true" name="audit_id" type="BIGINT">
-                <constraints nullable="false" primaryKey="true" primaryKeyName="repo_entity_actions_audit_pkey"/>
-            </column>
-            <column defaultValueComputed="now()" name="action_tstamp" type="TIMESTAMP WITH TIME ZONE">
-                <constraints nullable="false"/>
-            </column>
-            <column name="action" type="TEXT">
-                <constraints nullable="false"/>
-            </column>
-            <column name="action_by" type="TEXT"/>
-            <column name="repo_entity_actions_id" type="BIGINT"/>
-            <column name="repo_id_before" type="VARCHAR">
-                <constraints nullable="false"/>
-            </column>
-            <column name="repo_id_after" type="VARCHAR">
-                <constraints nullable="false"/>
-            </column>
-            <column name="action_type_before" type="VARCHAR">
-                <constraints nullable="false"/>
-            </column>
-            <column name="action_type_after" type="VARCHAR">
-                <constraints nullable="false"/>
-            </column>
-            <column name="user_id_before" type="VARCHAR">
-                <constraints nullable="false"/>
-            </column>
-            <column name="user_id_after" type="VARCHAR">
-                <constraints nullable="false"/>
-            </column>
-            <column name="updated_at_before" type="TIMESTAMP WITH TIME ZONE"/>
-            <column name="updated_at_after" type="TIMESTAMP WITH TIME ZONE"/>
-            <column name="updated_by_before" type="VARCHAR"/>
-            <column name="updated_by_after" type="VARCHAR"/>
-            <column name="deleted_at_before" type="TIMESTAMP WITH TIME ZONE"/>
-            <column name="deleted_at_after" type="TIMESTAMP WITH TIME ZONE"/>
-            <column name="deleted_by_before" type="VARCHAR"/>
-            <column name="deleted_by_after" type="VARCHAR"/>
-            <column name="version_before" type="INTEGER"/>
-            <column name="version_after" type="INTEGER"/>
-        </createTable>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-10">
+    <changeSet author="dashrath (generated)" id="1784803951223-4">
         <createTable tableName="github_archieved_stats">
             <column autoIncrement="true" name="id" type="BIGINT">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="github_archieved_stats_pkey"/>
@@ -478,87 +215,9 @@
             </column>
         </createTable>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-11">
-        <createTable tableName="github_archieved_stats_audit">
-            <column autoIncrement="true" name="audit_id" type="BIGINT">
-                <constraints nullable="false" primaryKey="true" primaryKeyName="github_archieved_stats_audit_pkey"/>
-            </column>
-            <column defaultValueComputed="now()" name="action_tstamp" type="TIMESTAMP WITH TIME ZONE">
-                <constraints nullable="false"/>
-            </column>
-            <column name="action" type="TEXT">
-                <constraints nullable="false"/>
-            </column>
-            <column name="action_by" type="TEXT"/>
-            <column name="github_archieved_stats_id" type="UUID"/>
-            <column name="weekly_commit_add_before" type="INTEGER"/>
-            <column name="weekly_commit_add_after" type="INTEGER"/>
-            <column name="weekly_commit_del_before" type="INTEGER"/>
-            <column name="weekly_commit_del_after" type="INTEGER"/>
-            <column name="yearly_commit_count_before" type="INT4[]"/>
-            <column name="yearly_commit_count_after" type="INT4[]"/>
-            <column name="daily_clone_count_before" type="INTEGER"/>
-            <column name="daily_clone_count_after" type="INTEGER"/>
-            <column name="daily_view_count_before" type="INTEGER"/>
-            <column name="daily_view_count_after" type="INTEGER"/>
-            <column name="last_14_day_top_referral_sources_before" type="JSONB[]"/>
-            <column name="last_14_day_top_referral_sources_after" type="JSONB[]"/>
-            <column name="last_14_day_top_referral_path_before" type="JSONB[]"/>
-            <column name="last_14_day_top_referral_path_after" type="JSONB[]"/>
-            <column name="created_at_before" type="TIMESTAMP WITH TIME ZONE"/>
-            <column name="created_at_after" type="TIMESTAMP WITH TIME ZONE"/>
-            <column name="created_by_before" type="VARCHAR"/>
-            <column name="created_by_after" type="VARCHAR"/>
-            <column name="updated_at_before" type="TIMESTAMP WITH TIME ZONE"/>
-            <column name="updated_at_after" type="TIMESTAMP WITH TIME ZONE"/>
-            <column name="updated_by_before" type="VARCHAR"/>
-            <column name="updated_by_after" type="VARCHAR"/>
-            <column name="deleted_at_before" type="TIMESTAMP WITH TIME ZONE"/>
-            <column name="deleted_at_after" type="TIMESTAMP WITH TIME ZONE"/>
-            <column name="deleted_by_before" type="VARCHAR"/>
-            <column name="deleted_by_after" type="VARCHAR"/>
-            <column name="version_before" type="INTEGER"/>
-            <column name="version_after" type="INTEGER"/>
-        </createTable>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-12">
-        <createTable tableName="keywords_audit">
-            <column autoIncrement="true" name="audit_id" type="BIGINT">
-                <constraints nullable="false" primaryKey="true" primaryKeyName="keywords_audit_pkey"/>
-            </column>
-            <column defaultValueComputed="now()" name="action_tstamp" type="TIMESTAMP WITH TIME ZONE">
-                <constraints nullable="false"/>
-            </column>
-            <column name="action" type="TEXT">
-                <constraints nullable="false"/>
-            </column>
-            <column name="action_by" type="TEXT"/>
-            <column name="keywords_id" type="INTEGER"/>
-            <column name="name_before" type="VARCHAR"/>
-            <column name="name_after" type="VARCHAR"/>
-            <column name="acronym_before" type="VARCHAR"/>
-            <column name="acronym_after" type="VARCHAR"/>
-            <column name="source_before" type="VARCHAR"/>
-            <column name="source_after" type="VARCHAR"/>
-            <column name="created_at_before" type="TIMESTAMP WITH TIME ZONE"/>
-            <column name="created_at_after" type="TIMESTAMP WITH TIME ZONE"/>
-            <column name="created_by_before" type="VARCHAR"/>
-            <column name="created_by_after" type="VARCHAR"/>
-            <column name="updated_at_before" type="TIMESTAMP WITH TIME ZONE"/>
-            <column name="updated_at_after" type="TIMESTAMP WITH TIME ZONE"/>
-            <column name="updated_by_before" type="VARCHAR"/>
-            <column name="updated_by_after" type="VARCHAR"/>
-            <column name="deleted_at_before" type="TIMESTAMP WITH TIME ZONE"/>
-            <column name="deleted_at_after" type="TIMESTAMP WITH TIME ZONE"/>
-            <column name="deleted_by_before" type="VARCHAR"/>
-            <column name="deleted_by_after" type="VARCHAR"/>
-            <column name="version_before" type="INTEGER"/>
-            <column name="version_after" type="INTEGER"/>
-        </createTable>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-13">
+    <changeSet author="dashrath (generated)" id="1784803951223-5">
         <createTable tableName="pmc_articles">
-            <column autoIncrement="true" name="id" startWith="12555" type="INTEGER">
+            <column autoIncrement="true" name="id" type="INTEGER">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="pmc_articles_pkey"/>
             </column>
             <column name="record_id" type="INTEGER">
@@ -638,11 +297,14 @@
                 <constraints nullable="false"/>
             </column>
             <column name="ingestion_id" type="INTEGER"/>
+            <column name="epmc_id" type="VARCHAR"/>
+            <column name="approved_by" type="VARCHAR"/>
+            <column name="approved_at" type="TIMESTAMP WITH TIME ZONE"/>
         </createTable>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-14">
+    <changeSet author="dashrath (generated)" id="1784803951223-6">
         <createTable tableName="pmc_authors">
-            <column autoIncrement="true" name="id" startWith="69799" type="INTEGER">
+            <column autoIncrement="true" name="id" type="INTEGER">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="pmc_authors_pkey"/>
             </column>
             <column name="fullname" type="TEXT">
@@ -670,9 +332,9 @@
             <column name="ingestion_id" type="INTEGER"/>
         </createTable>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-15">
+    <changeSet author="dashrath (generated)" id="1784803951223-7">
         <createTable tableName="pmc_affiliations">
-            <column autoIncrement="true" name="id" startWith="78249" type="INTEGER">
+            <column autoIncrement="true" name="id" type="INTEGER">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="pmc_affiliations_pkey"/>
             </column>
             <column name="author_id" type="INTEGER">
@@ -703,9 +365,9 @@
             <column name="ingestion_id" type="INTEGER"/>
         </createTable>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-16">
+    <changeSet author="dashrath (generated)" id="1784803951223-8">
         <createTable tableName="articles_authors">
-            <column autoIncrement="true" name="id" startWith="140316" type="INTEGER">
+            <column autoIncrement="true" name="id" type="INTEGER">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="articles_authors_pkey"/>
             </column>
             <column name="article_id" type="INTEGER">
@@ -733,9 +395,9 @@
             <column name="ingestion_id" type="INTEGER"/>
         </createTable>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-17">
+    <changeSet author="dashrath (generated)" id="1784803951223-9">
         <createTable tableName="grants">
-            <column autoIncrement="true" name="id" startWith="46848" type="INTEGER">
+            <column autoIncrement="true" name="id" type="INTEGER">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="grants_pkey"/>
             </column>
             <column name="record_id" type="INTEGER">
@@ -773,9 +435,9 @@
             <column name="ingestion_id" type="INTEGER"/>
         </createTable>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-18">
+    <changeSet author="dashrath (generated)" id="1784803951223-10">
         <createTable tableName="fulltexts">
-            <column autoIncrement="true" name="id" startWith="42188" type="INTEGER">
+            <column autoIncrement="true" name="id" type="INTEGER">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="fulltexts_pkey"/>
             </column>
             <column name="article_id" type="INTEGER">
@@ -804,9 +466,9 @@
             <column name="ingestion_id" type="INTEGER"/>
         </createTable>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-19">
+    <changeSet author="dashrath (generated)" id="1784803951223-11">
         <createTable tableName="citations">
-            <column autoIncrement="true" name="id" startWith="392186" type="INTEGER">
+            <column autoIncrement="true" name="id" type="INTEGER">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="citations_pkey"/>
             </column>
             <column name="article_id" type="INTEGER">
@@ -837,9 +499,9 @@
             <column name="ingestion_id" type="INTEGER"/>
         </createTable>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-20">
+    <changeSet author="dashrath (generated)" id="1784803951223-12">
         <createTable tableName="pmc_references">
-            <column autoIncrement="true" name="id" startWith="438696" type="INTEGER">
+            <column autoIncrement="true" name="id" type="INTEGER">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="pmc_references_pkey"/>
             </column>
             <column name="article_id" type="INTEGER">
@@ -873,9 +535,9 @@
             <column name="ingestion_id" type="INTEGER"/>
         </createTable>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-21">
+    <changeSet author="dashrath (generated)" id="1784803951223-13">
         <createTable tableName="ingestion">
-            <column autoIncrement="true" name="id" startWith="25538" type="INTEGER">
+            <column autoIncrement="true" name="id" type="INTEGER">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="ingestion_pkey"/>
             </column>
             <column name="version" type="INTEGER">
@@ -891,11 +553,283 @@
                 <constraints nullable="false"/>
             </column>
             <column name="rows_count" type="INTEGER"/>
+            <column name="keyword" type="VARCHAR"/>
+            <column name="api_version" type="VARCHAR"/>
+            <column name="new_count" type="INTEGER"/>
+            <column name="changed_count" type="INTEGER"/>
+            <column name="unchanged_count" type="INTEGER"/>
         </createTable>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-22">
+    <changeSet author="dashrath (generated)" id="1784803951223-14">
+        <createTable tableName="pmc_keywords">
+            <column autoIncrement="true" name="id" type="INTEGER">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="pmc_keywords_pkey"/>
+            </column>
+            <column name="article_id" type="INTEGER">
+                <constraints nullable="false"/>
+            </column>
+            <column name="ingestion_id" type="INTEGER"/>
+            <column name="value" type="TEXT[]">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_by" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_by" type="VARCHAR(64)"/>
+            <column name="updated_at" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="deleted_by" type="VARCHAR(64)"/>
+            <column name="deleted_at" type="TIMESTAMP WITH TIME ZONE"/>
+            <column defaultValueNumeric="1" name="version" type="INTEGER">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-15">
+        <createTable tableName="pmc_review">
+            <column name="id" type="INTEGER">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="pmc_review_pk"/>
+            </column>
+            <column name="ingestion_id" type="INTEGER"/>
+            <column name="epmc_id" type="VARCHAR"/>
+            <column name="doi" type="VARCHAR"/>
+            <column name="staging_id" type="INTEGER"/>
+            <column name="production_id" type="INTEGER"/>
+            <column name="review_type" type="VARCHAR"/>
+            <column name="diff" type="JSONB"/>
+            <column name="auto_approved" type="BOOLEAN"/>
+            <column name="auto_approve_reason" type="VARCHAR"/>
+            <column name="review_status" type="VARCHAR"/>
+            <column name="reviewed_by" type="VARCHAR"/>
+            <column name="reviewd_at" type="TIMESTAMP WITH TIME ZONE"/>
+            <column name="review_comment" type="VARCHAR"/>
+            <column name="created_by" type="VARCHAR"/>
+            <column name="created_at" type="TIMESTAMP WITH TIME ZONE"/>
+        </createTable>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-16">
+        <createTable tableName="known_divergences">
+            <column autoIncrement="true" name="id" type="INTEGER">
+                <constraints nullable="false"/>
+            </column>
+            <column name="epmc_id" type="VARCHAR"/>
+            <column name="doi" type="VARCHAR"/>
+            <column name="field_path" type="TEXT"/>
+            <column name="epmc_value" type="TEXT"/>
+            <column name="retained_value" type="TEXT"/>
+            <column name="rejected_by" type="VARCHAR"/>
+            <column name="rejected_at" type="TIMESTAMP WITH TIME ZONE"/>
+            <column name="review_comment" type="TEXT"/>
+            <column name="active" type="BOOLEAN"/>
+            <column name="review_id" type="INTEGER"/>
+            <column name="ingestion_id" type="INTEGER"/>
+            <column name="created_at" type="TIMESTAMP WITH TIME ZONE"/>
+        </createTable>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-17">
+        <createTable tableName="audit_log">
+            <column autoIncrement="true" name="id" type="INTEGER">
+                <constraints nullable="false"/>
+            </column>
+            <column name="event_type" type="VARCHAR"/>
+            <column name="environment" remarks="'staging' | 'production'" type="VARCHAR"/>
+            <column name="entity_type" remarks="-- 'article' | 'author' | 'affiliation' | 'citation'&#10;                                    -- | 'reference' | 'fulltext' | 'grant'&#10;                                    -- | 'ingestion' | 'review'" type="VARCHAR"/>
+            <column name="entity_id" remarks="PK of the affected row in its own table&#10;-- (staging PK for staging events; production PK for production events)" type="VARCHAR"/>
+            <column name="epmc_id" remarks="EuropePMC id; NULL for ingestion-level events" type="VARCHAR"/>
+            <column name="doi" remarks="Null if epmc_id is present" type="VARCHAR"/>
+            <column name="ingestion_id" type="INTEGER"/>
+            <column name="review_id" type="INTEGER"/>
+            <column name="action_by" remarks="'system' for auto approved or curator username" type="VARCHAR"/>
+            <column name="action_at" type="TIMESTAMP WITH TIME ZONE"/>
+            <column name="old_value" remarks="state before the event; NULL for inserts / non-write events" type="JSONB"/>
+            <column name="new_value" remarks="state after the event; NULL for deletions / non-write events" type="JSONB"/>
+            <column name="comment" type="TEXT"/>
+        </createTable>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-18">
+        <createTable tableName="schema_migrations">
+            <column name="version" type="BIGINT">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="schema_migrations_pkey"/>
+            </column>
+            <column name="dirty" type="BOOLEAN">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-19">
+        <createIndex indexName="idx_pypi_project_name" tableName="pypi" using="btree">
+            <column name="project_name"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-20">
+        <createIndex indexName="idx_pypi_versions_python_version" tableName="pypi_versions" using="btree">
+            <column name="python_version"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-21">
+        <createIndex indexName="idx_github_repos_name" tableName="github_repos" using="btree">
+            <column name="name"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-22">
+        <createIndex indexName="idx_github_repos_owner" tableName="github_repos" using="btree">
+            <column name="owner"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-23">
+        <createIndex indexName="idx_github_repos_is_archived" tableName="github_repos" using="btree">
+            <column name="is_archived"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-24">
+        <createIndex indexName="idx_github_repos_is_fork" tableName="github_repos" using="btree">
+            <column name="is_fork"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-25">
+        <createIndex indexName="idx_github_archieved_stats_repo_id" tableName="github_archieved_stats" using="btree">
+            <column name="repo_id"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-26">
+        <createIndex indexName="idx_pmc_articles_record_id" tableName="pmc_articles" using="btree">
+            <column name="record_id"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-27">
+        <createIndex indexName="idx_pmc_articles_pm_id" tableName="pmc_articles" using="btree">
+            <column name="pm_id"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-28">
+        <createIndex indexName="idx_pmc_articles_pmc_id" tableName="pmc_articles" using="btree">
+            <column name="pmc_id"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-29">
+        <createIndex indexName="idx_pmc_articles_doi" tableName="pmc_articles" using="btree">
+            <column name="doi"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-30">
+        <createIndex indexName="idx_pmc_articles_pub_year" tableName="pmc_articles" using="btree">
+            <column name="pub_year"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-31">
+        <createIndex indexName="idx_pmc_articles_is_open_access" tableName="pmc_articles" using="btree">
+            <column name="is_open_access"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-32">
+        <createIndex indexName="pmc_articles_epmc_id_idx" tableName="pmc_articles" using="btree">
+            <column name="epmc_id"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-33">
+        <createIndex indexName="idx_pmc_authors_lastname" tableName="pmc_authors" using="btree">
+            <column name="lastname"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-34">
+        <createIndex indexName="idx_pmc_authors_orcid" tableName="pmc_authors" using="btree">
+            <column name="orcid"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-35">
+        <createIndex indexName="idx_affiliations_article_id" tableName="pmc_affiliations" using="btree">
+            <column name="article_id"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-36">
+        <createIndex indexName="idx_affiliations_org" tableName="pmc_affiliations" using="btree">
+            <column name="org_name"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-37">
+        <createIndex indexName="idx_articles_authors_article_id" tableName="articles_authors" using="btree">
+            <column name="article_id"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-38">
+        <createIndex indexName="idx_articles_authors_author_id" tableName="articles_authors" using="btree">
+            <column name="author_id"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-39">
+        <createIndex indexName="idx_unique_article_author_order" tableName="articles_authors" unique="true" using="btree">
+            <column name="article_id"/>
+            <column name="author_id"/>
+            <column name="author_order"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-40">
+        <createIndex indexName="idx_grants_agency" tableName="grants" using="btree">
+            <column name="agency"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-41">
+        <createIndex indexName="idx_grants_grant_id" tableName="grants" using="btree">
+            <column name="grant_id"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-42">
+        <createIndex indexName="idx_grants_record_id" tableName="grants" using="btree">
+            <column name="record_id"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-43">
+        <createIndex indexName="idx_fulltexts_article_id" tableName="fulltexts" using="btree">
+            <column name="article_id"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-44">
+        <createIndex indexName="idx_citations_article_id" tableName="citations" using="btree">
+            <column name="article_id"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-45">
+        <createIndex indexName="idx_citations_citation_id" tableName="citations" using="btree">
+            <column name="citation_id"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-46">
+        <createIndex indexName="idx_citations_citation_count" tableName="citations" using="btree">
+            <column defaultValueNumeric="0" name="citation_count"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-47">
+        <createIndex indexName="idx_citations_pub_year" tableName="citations" using="btree">
+            <column name="pub_year"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-48">
+        <createIndex indexName="idx_references_article_id" tableName="pmc_references" using="btree">
+            <column name="article_id"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-49">
+        <createIndex indexName="idx_references_pub_year" tableName="pmc_references" using="btree">
+            <column name="pub_year"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-50">
+        <createIndex indexName="idx_ingestion_ingested_at" tableName="ingestion" using="btree">
+            <column defaultValueComputed="now()" name="ingested_at"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-51">
+        <createIndex indexName="idx_ingestion_version" tableName="ingestion" using="btree">
+            <column name="version"/>
+        </createIndex>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-52">
         <createTable tableName="records">
-            <column autoIncrement="true" name="id" startWith="15679" type="BIGINT">
+            <column autoIncrement="true" name="id" type="BIGINT">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="records_pkey"/>
             </column>
             <column name="record_type" type="RECORD_TYPE">
@@ -930,303 +864,7 @@
             <column name="product_line" type="PRODUCT_TYPE"/>
         </createTable>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-23">
-        <createTable tableName="records_audit">
-            <column autoIncrement="true" name="audit_id" startWith="29705" type="INTEGER">
-                <constraints nullable="false" primaryKey="true" primaryKeyName="records_audit_pkey"/>
-            </column>
-            <column defaultValueComputed="now()" name="action_tstamp" type="TIMESTAMP WITH TIME ZONE">
-                <constraints nullable="false"/>
-            </column>
-            <column name="action" type="TEXT">
-                <constraints nullable="false"/>
-            </column>
-            <column name="action_by" type="VARCHAR(64)"/>
-            <column name="record_id" type="INTEGER"/>
-            <column name="record_type_before" type="RECORD_TYPE"/>
-            <column name="record_type_after" type="RECORD_TYPE"/>
-            <column name="source_before" type="SOURCE"/>
-            <column name="source_after" type="SOURCE"/>
-            <column name="status_before" type="RECORD_STATUS"/>
-            <column name="status_after" type="RECORD_STATUS"/>
-            <column name="created_by_before" type="VARCHAR(64)"/>
-            <column name="created_by_after" type="VARCHAR(64)"/>
-            <column name="created_at_before" type="TIMESTAMP WITHOUT TIME ZONE"/>
-            <column name="created_at_after" type="TIMESTAMP WITHOUT TIME ZONE"/>
-            <column name="updated_by_before" type="VARCHAR(64)"/>
-            <column name="updated_by_after" type="VARCHAR(64)"/>
-            <column name="updated_at_before" type="TIMESTAMP WITHOUT TIME ZONE"/>
-            <column name="updated_at_after" type="TIMESTAMP WITHOUT TIME ZONE"/>
-            <column name="deleted_by_before" type="VARCHAR(64)"/>
-            <column name="deleted_by_after" type="VARCHAR(64)"/>
-            <column name="deleted_at_before" type="TIMESTAMP WITHOUT TIME ZONE"/>
-            <column name="deleted_at_after" type="TIMESTAMP WITHOUT TIME ZONE"/>
-            <column name="version_before" type="INTEGER"/>
-            <column name="version_after" type="INTEGER"/>
-            <column name="keyword_before" type="VARCHAR[]"/>
-            <column name="keyword_after" type="VARCHAR[]"/>
-            <column name="product_line_before" type="PRODUCT_TYPE"/>
-            <column name="product_line_after" type="PRODUCT_TYPE"/>
-        </createTable>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-24">
-        <createTable tableName="articles">
-            <column autoIncrement="true" name="id" startWith="623" type="INTEGER">
-                <constraints nullable="false" primaryKey="true" primaryKeyName="articles_pkey"/>
-            </column>
-            <column name="record_id" type="INTEGER">
-                <constraints nullable="false"/>
-            </column>
-            <column name="abstract" type="TEXT"/>
-            <column name="title" type="TEXT">
-                <constraints nullable="false"/>
-            </column>
-            <column name="journal" type="TEXT">
-                <constraints nullable="false"/>
-            </column>
-            <column name="source_id" type="VARCHAR">
-                <constraints nullable="false"/>
-            </column>
-            <column name="doi" type="VARCHAR"/>
-            <column name="status" type="ARTICLE_STATUS">
-                <constraints nullable="false"/>
-            </column>
-            <column name="publish_date" type="TIMESTAMP WITHOUT TIME ZONE"/>
-            <column name="link" type="VARCHAR">
-                <constraints nullable="false"/>
-            </column>
-            <column name="created_by" type="VARCHAR(64)">
-                <constraints nullable="false"/>
-            </column>
-            <column name="created_at" type="TIMESTAMP WITHOUT TIME ZONE">
-                <constraints nullable="false"/>
-            </column>
-            <column name="updated_by" type="VARCHAR(64)">
-                <constraints nullable="false"/>
-            </column>
-            <column name="updated_at" type="TIMESTAMP WITHOUT TIME ZONE">
-                <constraints nullable="false"/>
-            </column>
-            <column name="deleted_by" type="VARCHAR(64)"/>
-            <column name="deleted_at" type="TIMESTAMP WITHOUT TIME ZONE"/>
-            <column name="version" type="INTEGER">
-                <constraints nullable="false"/>
-            </column>
-            <column name="Publication Year" type="INTEGER"/>
-        </createTable>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-25">
-        <createTable tableName="articles_audit">
-            <column autoIncrement="true" name="audit_id" startWith="461" type="INTEGER">
-                <constraints nullable="false" primaryKey="true" primaryKeyName="articles_audit_pkey"/>
-            </column>
-            <column defaultValueComputed="now()" name="action_tstamp" type="TIMESTAMP WITH TIME ZONE">
-                <constraints nullable="false"/>
-            </column>
-            <column name="action" type="TEXT">
-                <constraints nullable="false"/>
-            </column>
-            <column name="action_by" type="VARCHAR(64)"/>
-            <column name="article_id" type="INTEGER"/>
-            <column name="record_id_before" type="INTEGER"/>
-            <column name="record_id_after" type="INTEGER"/>
-            <column name="abstract_before" type="TEXT"/>
-            <column name="abstract_after" type="TEXT"/>
-            <column name="source_id_before" type="VARCHAR"/>
-            <column name="source_id_after" type="VARCHAR"/>
-            <column name="doi_before" type="VARCHAR"/>
-            <column name="doi_after" type="VARCHAR"/>
-            <column name="status_before" type="ARTICLE_STATUS"/>
-            <column name="status_after" type="ARTICLE_STATUS"/>
-            <column name="publish_date_before" type="TIMESTAMP WITHOUT TIME ZONE"/>
-            <column name="publish_date_after" type="TIMESTAMP WITHOUT TIME ZONE"/>
-            <column name="link_before" type="VARCHAR"/>
-            <column name="link_after" type="VARCHAR"/>
-            <column name="created_by_before" type="VARCHAR(64)"/>
-            <column name="created_by_after" type="VARCHAR(64)"/>
-            <column name="created_at_before" type="TIMESTAMP WITHOUT TIME ZONE"/>
-            <column name="created_at_after" type="TIMESTAMP WITHOUT TIME ZONE"/>
-            <column name="updated_by_before" type="VARCHAR(64)"/>
-            <column name="updated_by_after" type="VARCHAR(64)"/>
-            <column name="updated_at_before" type="TIMESTAMP WITHOUT TIME ZONE"/>
-            <column name="updated_at_after" type="TIMESTAMP WITHOUT TIME ZONE"/>
-            <column name="deleted_by_before" type="VARCHAR(64)"/>
-            <column name="deleted_by_after" type="VARCHAR(64)"/>
-            <column name="deleted_at_before" type="TIMESTAMP WITHOUT TIME ZONE"/>
-            <column name="deleted_at_after" type="TIMESTAMP WITHOUT TIME ZONE"/>
-            <column name="version_before" type="INTEGER"/>
-            <column name="version_after" type="INTEGER"/>
-        </createTable>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-26">
-        <createTable tableName="authors">
-            <column autoIncrement="true" name="id" startWith="2905" type="INTEGER">
-                <constraints nullable="false" primaryKey="true" primaryKeyName="authors_pkey"/>
-            </column>
-            <column name="name" type="VARCHAR(64)">
-                <constraints nullable="false"/>
-            </column>
-            <column name="contact" type="VARCHAR(64)"/>
-            <column name="is_primary" type="BOOLEAN">
-                <constraints nullable="false"/>
-            </column>
-            <column name="article_type" type="ARTICLE_TYPE">
-                <constraints nullable="false"/>
-            </column>
-            <column name="article_id" type="INTEGER"/>
-            <column name="created_by" type="VARCHAR(64)">
-                <constraints nullable="false"/>
-            </column>
-            <column defaultValueComputed="now()" name="created_at" type="TIMESTAMP WITHOUT TIME ZONE">
-                <constraints nullable="false"/>
-            </column>
-            <column name="updated_by" type="VARCHAR(64)">
-                <constraints nullable="false"/>
-            </column>
-            <column defaultValueComputed="now()" name="updated_at" type="TIMESTAMP WITHOUT TIME ZONE">
-                <constraints nullable="false"/>
-            </column>
-            <column name="deleted_by" type="VARCHAR(64)"/>
-            <column name="deleted_at" type="TIMESTAMP WITHOUT TIME ZONE"/>
-            <column name="version" type="INTEGER">
-                <constraints nullable="false"/>
-            </column>
-        </createTable>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-27">
-        <createTable tableName="authors_audit">
-            <column autoIncrement="true" name="audit_id" startWith="2905" type="INTEGER">
-                <constraints nullable="false" primaryKey="true" primaryKeyName="authors_audit_pkey"/>
-            </column>
-            <column defaultValueComputed="now()" name="action_tstamp" type="TIMESTAMP WITH TIME ZONE">
-                <constraints nullable="false"/>
-            </column>
-            <column name="action" type="TEXT">
-                <constraints nullable="false"/>
-            </column>
-            <column name="action_by" type="VARCHAR(64)"/>
-            <column name="author_id" type="INTEGER"/>
-            <column name="name_before" type="VARCHAR(64)"/>
-            <column name="name_after" type="VARCHAR(64)"/>
-            <column name="contact_before" type="VARCHAR(64)"/>
-            <column name="contact_after" type="VARCHAR(64)"/>
-            <column name="is_primary_before" type="BOOLEAN"/>
-            <column name="is_primary_after" type="BOOLEAN"/>
-            <column name="article_type_before" type="ARTICLE_TYPE"/>
-            <column name="article_type_after" type="ARTICLE_TYPE"/>
-            <column name="article_id_before" type="INTEGER"/>
-            <column name="article_id_after" type="INTEGER"/>
-            <column name="created_by_before" type="VARCHAR(64)"/>
-            <column name="created_by_after" type="VARCHAR(64)"/>
-            <column name="created_at_before" type="TIMESTAMP WITH TIME ZONE"/>
-            <column name="created_at_after" type="TIMESTAMP WITH TIME ZONE"/>
-            <column name="updated_by_before" type="VARCHAR(64)"/>
-            <column name="updated_by_after" type="VARCHAR(64)"/>
-            <column name="updated_at_before" type="TIMESTAMP WITH TIME ZONE"/>
-            <column name="updated_at_after" type="TIMESTAMP WITH TIME ZONE"/>
-            <column name="deleted_by_before" type="VARCHAR(64)"/>
-            <column name="deleted_by_after" type="VARCHAR(64)"/>
-            <column name="deleted_at_before" type="TIMESTAMP WITH TIME ZONE"/>
-            <column name="deleted_at_after" type="TIMESTAMP WITH TIME ZONE"/>
-            <column name="version_before" type="INTEGER"/>
-            <column name="version_after" type="INTEGER"/>
-        </createTable>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-28">
-        <createIndex indexName="idx_affiliations_institute" tableName="affiliations" using="btree">
-            <column name="institute"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-29">
-        <createIndex indexName="idx_affiliations_location" tableName="affiliations" using="btree">
-            <column name="location"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-30">
-        <createIndex indexName="idx_affiliations_author_id" tableName="affiliations" using="btree">
-            <column name="author_id"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-31">
-        <createIndex indexName="idx_affiliations_audit_affiliations_id" tableName="affiliations_audit" using="btree">
-            <column name="affiliation_id"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-32">
-        <createIndex indexName="idx_affiliations_audit_action_tstamp" tableName="affiliations_audit" using="btree">
-            <column defaultValueComputed="now()" name="action_tstamp"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-33">
-        <addUniqueConstraint columnNames="affiliation_id, version_after" constraintName="affiliations_audit_affiliation_id_version_after_key" tableName="affiliations_audit"/>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-34">
-        <createIndex indexName="idx_pypi_project_name" tableName="pypi" using="btree">
-            <column name="project_name"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-35">
-        <createIndex indexName="idx_pypi_audit_pypi_id" tableName="pypi_audit" using="btree">
-            <column name="pypi_id"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-36">
-        <createIndex indexName="idx_pypi_audit_action_tstamp" tableName="pypi_audit" using="btree">
-            <column defaultValueComputed="now()" name="action_tstamp"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-37">
-        <addUniqueConstraint columnNames="pypi_id, version_after" constraintName="pypi_audit_pypi_id_version_after_key" tableName="pypi_audit"/>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-38">
-        <createIndex indexName="idx_pypi_versions_python_version" tableName="pypi_versions" using="btree">
-            <column name="python_version"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-39">
-        <createIndex indexName="idx_pypi_versions_audit_pypi_versions_id" tableName="pypi_versions_audit" using="btree">
-            <column name="pypi_versions_id"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-40">
-        <createIndex indexName="idx_pypi_versions_audit_action_tstamp" tableName="pypi_versions_audit" using="btree">
-            <column defaultValueComputed="now()" name="action_tstamp"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-41">
-        <addUniqueConstraint columnNames="pypi_versions_id, version_after" constraintName="pypi_versions_audit_pypi_versions_id_version_after_key" tableName="pypi_versions_audit"/>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-42">
-        <createIndex indexName="idx_github_repos_name" tableName="github_repos" using="btree">
-            <column name="name"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-43">
-        <createIndex indexName="idx_github_repos_owner" tableName="github_repos" using="btree">
-            <column name="owner"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-44">
-        <createIndex indexName="idx_github_repos_is_archived" tableName="github_repos" using="btree">
-            <column name="is_archived"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-45">
-        <createIndex indexName="idx_github_repos_is_fork" tableName="github_repos" using="btree">
-            <column name="is_fork"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-46">
-        <createIndex indexName="idx_github_repos_audit_repo_id" tableName="github_repos_audit" using="btree">
-            <column name="github_repo_id"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-47">
-        <createIndex indexName="idx_github_repos_audit_action_tstamp" tableName="github_repos_audit" using="btree">
-            <column defaultValueComputed="now()" name="action_tstamp"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-48">
+    <changeSet author="dashrath (generated)" id="1784803951223-53">
         <createTable tableName="repo_entity_actions">
             <column autoIncrement="true" name="id" type="BIGINT">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="repo_entity_actions_pkey"/>
@@ -1257,10 +895,7 @@
             </column>
         </createTable>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-49">
-        <addUniqueConstraint columnNames="repo_entity_actions_id, version_after" constraintName="repo_entity_actions_audit_repo_entity_actions_id_version_af_key" tableName="repo_entity_actions_audit"/>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-50">
+    <changeSet author="dashrath (generated)" id="1784803951223-54">
         <createTable tableName="contributor_entity">
             <column name="id" type="UUID">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="contributor_entity_pkey"/>
@@ -1296,360 +931,210 @@
             </column>
         </createTable>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-51">
-        <createTable tableName="contributor_entity_audit">
-            <column autoIncrement="true" name="audit_id" type="BIGINT">
-                <constraints nullable="false" primaryKey="true" primaryKeyName="contributor_entity_audit_pkey"/>
-            </column>
-            <column defaultValueComputed="now()" name="action_tstamp" type="TIMESTAMP WITH TIME ZONE">
-                <constraints nullable="false"/>
-            </column>
-            <column name="action" type="TEXT">
-                <constraints nullable="false"/>
-            </column>
-            <column name="action_by" type="TEXT"/>
-            <column name="contributor_entity_id" type="INTEGER"/>
-            <column name="name_before" type="VARCHAR">
-                <constraints nullable="false"/>
-            </column>
-            <column name="name_after" type="VARCHAR">
-                <constraints nullable="false"/>
-            </column>
-            <column name="user_id_before" type="VARCHAR">
-                <constraints nullable="false"/>
-            </column>
-            <column name="user_id_after" type="VARCHAR">
-                <constraints nullable="false"/>
-            </column>
-            <column name="company_before" type="VARCHAR">
-                <constraints nullable="false"/>
-            </column>
-            <column name="company_after" type="VARCHAR">
-                <constraints nullable="false"/>
-            </column>
-            <column name="email_before" type="VARCHAR">
-                <constraints nullable="false"/>
-            </column>
-            <column name="email_after" type="VARCHAR">
-                <constraints nullable="false"/>
-            </column>
-            <column name="location_before" type="VARCHAR"/>
-            <column name="location_after" type="VARCHAR"/>
-            <column name="type_before" type="CONTRIBUTOR_ENTITY_TYPE">
-                <constraints nullable="false"/>
-            </column>
-            <column name="type_after" type="CONTRIBUTOR_ENTITY_TYPE">
-                <constraints nullable="false"/>
-            </column>
-            <column name="updated_at_before" type="TIMESTAMP WITH TIME ZONE"/>
-            <column name="updated_at_after" type="TIMESTAMP WITH TIME ZONE"/>
-            <column name="updated_by_before" type="VARCHAR"/>
-            <column name="updated_by_after" type="VARCHAR"/>
-            <column name="deleted_at_before" type="TIMESTAMP WITH TIME ZONE"/>
-            <column name="deleted_at_after" type="TIMESTAMP WITH TIME ZONE"/>
-            <column name="deleted_by_before" type="VARCHAR"/>
-            <column name="deleted_by_after" type="VARCHAR"/>
-            <column name="version_before" type="INTEGER"/>
-            <column name="version_after" type="INTEGER"/>
-        </createTable>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-52">
-        <createIndex indexName="idx_github_archieved_stats_repo_id" tableName="github_archieved_stats" using="btree">
-            <column name="repo_id"/>
+    <changeSet author="dashrath (generated)" id="1784803951223-55">
+        <createIndex indexName="pmc_review_ingestion_id_idx" tableName="pmc_review" using="btree">
+            <column name="ingestion_id"/>
         </createIndex>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-53">
-        <addUniqueConstraint columnNames="github_archieved_stats_id, version_after" constraintName="github_archieved_stats_audit_github_archieved_stats_id_vers_key" tableName="github_archieved_stats_audit"/>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-54">
-        <createTable tableName="keywords">
-            <column autoIncrement="true" name="id" type="BIGINT">
-                <constraints nullable="false" primaryKey="true" primaryKeyName="keywords_pkey"/>
-            </column>
-            <column name="name" type="VARCHAR">
-                <constraints nullable="false"/>
-            </column>
-            <column name="acronym" type="VARCHAR">
-                <constraints nullable="false"/>
-            </column>
-            <column name="source" type="KEYWORD_SOURCE"/>
-            <column name="created_by" type="VARCHAR(64)">
-                <constraints nullable="false"/>
-            </column>
-            <column defaultValueComputed="now()" name="created_at" type="TIMESTAMP WITH TIME ZONE">
-                <constraints nullable="false"/>
-            </column>
-            <column name="updated_by" type="VARCHAR(64)">
-                <constraints nullable="false"/>
-            </column>
-            <column defaultValueComputed="now()" name="updated_at" type="TIMESTAMP WITH TIME ZONE">
-                <constraints nullable="false"/>
-            </column>
-            <column name="deleted_by" type="VARCHAR(64)"/>
-            <column name="deleted_at" type="TIMESTAMP WITH TIME ZONE"/>
-            <column name="version" type="INTEGER">
-                <constraints nullable="false"/>
-            </column>
-        </createTable>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-55">
-        <addUniqueConstraint columnNames="keywords_id, version_after" constraintName="keywords_audit_keywords_id_version_after_key" tableName="keywords_audit"/>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-56">
-        <createIndex indexName="idx_pmc_articles_record_id" tableName="pmc_articles" using="btree">
-            <column name="record_id"/>
+    <changeSet author="dashrath (generated)" id="1784803951223-56">
+        <createIndex indexName="pmc_review_epmc_id_idx" tableName="pmc_review" using="btree">
+            <column name="epmc_id"/>
         </createIndex>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-57">
-        <createIndex indexName="idx_pmc_articles_pm_id" tableName="pmc_articles" using="btree">
-            <column name="pm_id"/>
+    <changeSet author="dashrath (generated)" id="1784803951223-57">
+        <createIndex indexName="pmc_review_production_id_idx" tableName="pmc_review" using="btree">
+            <column name="production_id"/>
         </createIndex>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-58">
-        <createIndex indexName="idx_pmc_articles_pmc_id" tableName="pmc_articles" using="btree">
-            <column name="pmc_id"/>
+    <changeSet author="dashrath (generated)" id="1784803951223-58">
+        <createIndex indexName="pmc_review_review_status_idx" tableName="pmc_review" using="btree">
+            <column name="review_status"/>
         </createIndex>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-59">
-        <createIndex indexName="idx_pmc_articles_doi" tableName="pmc_articles" using="btree">
-            <column name="doi"/>
+    <changeSet author="dashrath (generated)" id="1784803951223-59">
+        <createIndex indexName="pmc_review_staging_id_idx" tableName="pmc_review" using="btree">
+            <column name="staging_id"/>
         </createIndex>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-60">
-        <createIndex indexName="idx_pmc_articles_pub_year" tableName="pmc_articles" using="btree">
-            <column name="pub_year"/>
+    <changeSet author="dashrath (generated)" id="1784803951223-60">
+        <createIndex indexName="known_divergences_epmc_id_active_idx" tableName="known_divergences" using="btree">
+            <column name="epmc_id"/>
+            <column name="active"/>
         </createIndex>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-61">
-        <createIndex indexName="idx_pmc_articles_is_open_access" tableName="pmc_articles" using="btree">
-            <column name="is_open_access"/>
+    <changeSet author="dashrath (generated)" id="1784803951223-61">
+        <createIndex indexName="known_divergences_field_path_idx" tableName="known_divergences" using="btree">
+            <column name="field_path"/>
         </createIndex>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-62">
-        <createIndex indexName="idx_pmc_authors_lastname" tableName="pmc_authors" using="btree">
-            <column name="lastname"/>
+    <changeSet author="dashrath (generated)" id="1784803951223-62">
+        <createIndex indexName="known_divergences_review_id_idx" tableName="known_divergences" using="btree">
+            <column name="review_id"/>
         </createIndex>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-63">
-        <createIndex indexName="idx_pmc_authors_orcid" tableName="pmc_authors" using="btree">
-            <column name="orcid"/>
+    <changeSet author="dashrath (generated)" id="1784803951223-63">
+        <createIndex indexName="known_divergences_epmc_id_idx" tableName="known_divergences" using="btree">
+            <column name="epmc_id"/>
         </createIndex>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-64">
-        <createIndex indexName="idx_affiliations_article_id" tableName="pmc_affiliations" using="btree">
-            <column name="article_id"/>
+    <changeSet author="dashrath (generated)" id="1784803951223-64">
+        <createIndex indexName="known_divergences_epmc_value_idx" tableName="known_divergences" using="btree">
+            <column name="epmc_value"/>
         </createIndex>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-65">
-        <createIndex indexName="idx_affiliations_org" tableName="pmc_affiliations" using="btree">
-            <column name="org_name"/>
+    <changeSet author="dashrath (generated)" id="1784803951223-65">
+        <createIndex indexName="audit_log_epmc_id_idx" tableName="audit_log" using="btree">
+            <column name="epmc_id"/>
         </createIndex>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-66">
-        <createIndex indexName="idx_articles_authors_article_id" tableName="articles_authors" using="btree">
-            <column name="article_id"/>
+    <changeSet author="dashrath (generated)" id="1784803951223-66">
+        <createIndex indexName="audit_log_ingestion_id_idx" tableName="audit_log" using="btree">
+            <column name="ingestion_id"/>
         </createIndex>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-67">
-        <createIndex indexName="idx_articles_authors_author_id" tableName="articles_authors" using="btree">
-            <column name="author_id"/>
+    <changeSet author="dashrath (generated)" id="1784803951223-67">
+        <createIndex indexName="audit_log_event_type_idx" tableName="audit_log" using="btree">
+            <column name="event_type"/>
         </createIndex>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-68">
-        <createIndex indexName="idx_unique_article_author_order" tableName="articles_authors" unique="true" using="btree">
-            <column name="article_id"/>
-            <column name="author_id"/>
-            <column name="author_order"/>
+    <changeSet author="dashrath (generated)" id="1784803951223-68">
+        <createIndex indexName="audit_log_event_type_id_idx" tableName="audit_log" using="btree">
+            <column name="event_type"/>
+            <column name="entity_id"/>
         </createIndex>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-69">
-        <createIndex indexName="idx_grants_article_id" tableName="grants" using="btree">
-            <column name="record_id"/>
+    <changeSet author="dashrath (generated)" id="1784803951223-69">
+        <createIndex indexName="audit_log_action_by_idx" tableName="audit_log" using="btree">
+            <column name="action_by"/>
         </createIndex>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-70">
-        <createIndex indexName="idx_grants_agency" tableName="grants" using="btree">
-            <column name="agency"/>
+    <changeSet author="dashrath (generated)" id="1784803951223-70">
+        <createIndex indexName="audit_log_action_at_idx" tableName="audit_log" using="btree">
+            <column name="action_at"/>
         </createIndex>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-71">
-        <createIndex indexName="idx_grants_grant_id" tableName="grants" using="btree">
-            <column name="grant_id"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-72">
-        <createIndex indexName="idx_fulltexts_article_id" tableName="fulltexts" using="btree">
-            <column name="article_id"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-73">
-        <createIndex indexName="idx_citations_article_id" tableName="citations" using="btree">
-            <column name="article_id"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-74">
-        <createIndex indexName="idx_citations_citation_id" tableName="citations" using="btree">
-            <column name="citation_id"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-75">
-        <createIndex indexName="idx_citations_citation_count" tableName="citations" using="btree">
-            <column defaultValueNumeric="0" name="citation_count"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-76">
-        <createIndex indexName="idx_citations_pub_year" tableName="citations" using="btree">
-            <column name="pub_year"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-77">
-        <createIndex indexName="idx_references_article_id" tableName="pmc_references" using="btree">
-            <column name="article_id"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-78">
-        <createIndex indexName="idx_references_pub_year" tableName="pmc_references" using="btree">
-            <column name="pub_year"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-79">
-        <createIndex indexName="idx_ingestion_ingested_at" tableName="ingestion" using="btree">
-            <column defaultValueComputed="now()" name="ingested_at"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-80">
-        <createIndex indexName="idx_ingestion_version" tableName="ingestion" using="btree">
-            <column name="version"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-81">
+    <changeSet author="dashrath (generated)" id="1784803951223-71">
         <createIndex indexName="idx_records_keyword" tableName="records" using="gin">
             <column name="keyword"/>
         </createIndex>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-82">
+    <changeSet author="dashrath (generated)" id="1784803951223-72">
         <createIndex indexName="idx_records_product_line" tableName="records" using="btree">
             <column name="product_line"/>
         </createIndex>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-83">
-        <addUniqueConstraint columnNames="record_id, version_after" constraintName="records_audit_record_id_version_after_key" tableName="records_audit"/>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-84">
-        <createIndex indexName="idx_articles_audit_articles_id" tableName="articles_audit" using="btree">
-            <column name="article_id"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-85">
-        <createIndex indexName="idx_articles_audit_action_tstamp" tableName="articles_audit" using="btree">
-            <column defaultValueComputed="now()" name="action_tstamp"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-86">
-        <addUniqueConstraint columnNames="article_id, version_after" constraintName="articles_audit_article_id_version_after_key" tableName="articles_audit"/>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-87">
-        <createIndex indexName="idx_authors_name" tableName="authors" using="btree">
-            <column name="name"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-88">
-        <createIndex indexName="idx_authors_is_primary" tableName="authors" using="btree">
-            <column name="is_primary"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-89">
-        <createIndex indexName="idx_authors_audit_author_id" tableName="authors_audit" using="btree">
-            <column name="author_id"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-90">
-        <createIndex indexName="idx_authors_audit_action_tstamp" tableName="authors_audit" using="btree">
-            <column defaultValueComputed="now()" name="action_tstamp"/>
-        </createIndex>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-91">
-        <addUniqueConstraint columnNames="author_id, version_after" constraintName="authors_audit_author_id_version_after_key" tableName="authors_audit"/>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-92">
+    <changeSet author="dashrath (generated)" id="1784803951223-73">
         <createIndex indexName="idx_repo_entity_repo_id" tableName="repo_entity_actions" using="btree">
             <column name="repo_id"/>
         </createIndex>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-93">
+    <changeSet author="dashrath (generated)" id="1784803951223-74">
         <createIndex indexName="idx_contributor_entity_location" tableName="contributor_entity" using="btree">
             <column name="location"/>
         </createIndex>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-94">
+    <changeSet author="dashrath (generated)" id="1784803951223-75">
         <createIndex indexName="idx_contributor_entity_type" tableName="contributor_entity" using="btree">
             <column name="type"/>
         </createIndex>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-95">
-        <addUniqueConstraint columnNames="contributor_entity_id, version_after" constraintName="contributor_entity_audit_contributor_entity_id_version_afte_key" tableName="contributor_entity_audit"/>
+    <changeSet author="dashrath (generated)" id="1784803951223-76">
+        <addForeignKeyConstraint baseColumnNames="ingestion_id" baseTableName="audit_log" constraintName="audit_log_ingestion_fk" deferrable="false" initiallyDeferred="false" onDelete="NO ACTION" onUpdate="NO ACTION" referencedColumnNames="id" referencedTableName="ingestion" validate="true"/>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-96">
-        <createIndex indexName="idx_keywords_source" tableName="keywords" using="btree">
-            <column name="source"/>
-        </createIndex>
+    <changeSet author="dashrath (generated)" id="1784803951223-77">
+        <addForeignKeyConstraint baseColumnNames="review_id" baseTableName="audit_log" constraintName="audit_log_pmc_review_fk" deferrable="false" initiallyDeferred="false" onDelete="NO ACTION" onUpdate="NO ACTION" referencedColumnNames="id" referencedTableName="pmc_review" validate="true"/>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-97">
-        <createTable tableName="schema_migrations">
-            <column name="version" type="BIGINT">
-                <constraints nullable="false" primaryKey="true" primaryKeyName="schema_migrations_pkey"/>
-            </column>
-            <column name="dirty" type="BOOLEAN">
-                <constraints nullable="false"/>
-            </column>
-        </createTable>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-98">
+    <changeSet author="dashrath (generated)" id="1784803951223-78">
         <addForeignKeyConstraint baseColumnNames="author_id" baseTableName="pmc_affiliations" constraintName="fk_affiliations_author" deferrable="false" initiallyDeferred="false" onDelete="CASCADE" onUpdate="NO ACTION" referencedColumnNames="id" referencedTableName="pmc_authors" validate="true"/>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-99">
-        <addForeignKeyConstraint baseColumnNames="article_id" baseTableName="authors" constraintName="fk_article" deferrable="false" initiallyDeferred="false" onDelete="CASCADE" onUpdate="NO ACTION" referencedColumnNames="id" referencedTableName="articles" validate="true"/>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-100">
+    <changeSet author="dashrath (generated)" id="1784803951223-79">
         <addForeignKeyConstraint baseColumnNames="article_id" baseTableName="articles_authors" constraintName="fk_articles_authors_article" deferrable="false" initiallyDeferred="false" onDelete="CASCADE" onUpdate="NO ACTION" referencedColumnNames="id" referencedTableName="pmc_articles" validate="true"/>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-101">
-        <addForeignKeyConstraint baseColumnNames="author_id" baseTableName="affiliations" constraintName="fk_author" deferrable="false" initiallyDeferred="false" onDelete="CASCADE" onUpdate="NO ACTION" referencedColumnNames="id" referencedTableName="authors" validate="true"/>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-102">
+    <changeSet author="dashrath (generated)" id="1784803951223-80">
         <addForeignKeyConstraint baseColumnNames="article_id" baseTableName="citations" constraintName="fk_citations_article" deferrable="false" initiallyDeferred="false" onDelete="CASCADE" onUpdate="NO ACTION" referencedColumnNames="id" referencedTableName="pmc_articles" validate="true"/>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-103">
+    <changeSet author="dashrath (generated)" id="1784803951223-81">
         <addForeignKeyConstraint baseColumnNames="article_id" baseTableName="fulltexts" constraintName="fk_fulltexts_article" deferrable="false" initiallyDeferred="false" onDelete="CASCADE" onUpdate="NO ACTION" referencedColumnNames="id" referencedTableName="pmc_articles" validate="true"/>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-104">
+    <changeSet author="dashrath (generated)" id="1784803951223-82">
         <addForeignKeyConstraint baseColumnNames="record_id" baseTableName="grants" constraintName="fk_grants_article" deferrable="false" initiallyDeferred="false" onDelete="CASCADE" onUpdate="NO ACTION" referencedColumnNames="id" referencedTableName="records" validate="true"/>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-105">
+    <changeSet author="dashrath (generated)" id="1784803951223-83">
         <addForeignKeyConstraint baseColumnNames="article_id" baseTableName="pmc_affiliations" constraintName="fk_pmc_articles" deferrable="false" initiallyDeferred="false" onDelete="CASCADE" onUpdate="NO ACTION" referencedColumnNames="id" referencedTableName="pmc_articles" validate="true"/>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-106">
+    <changeSet author="dashrath (generated)" id="1784803951223-84">
         <addForeignKeyConstraint baseColumnNames="record_id" baseTableName="pmc_articles" constraintName="fk_pmc_articles_record" deferrable="false" initiallyDeferred="false" onDelete="CASCADE" onUpdate="NO ACTION" referencedColumnNames="id" referencedTableName="records" validate="true"/>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-107">
+    <changeSet author="dashrath (generated)" id="1784803951223-85">
+        <addForeignKeyConstraint baseColumnNames="article_id" baseTableName="pmc_keywords" constraintName="fk_pmc_keywords_article" deferrable="false" initiallyDeferred="false" onDelete="CASCADE" onUpdate="NO ACTION" referencedColumnNames="id" referencedTableName="pmc_articles" validate="true"/>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-86">
+        <addForeignKeyConstraint baseColumnNames="ingestion_id" baseTableName="pmc_keywords" constraintName="fk_pmc_keywords_ingestion" deferrable="false" initiallyDeferred="false" onDelete="SET NULL" onUpdate="NO ACTION" referencedColumnNames="id" referencedTableName="ingestion" validate="true"/>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-87">
         <addForeignKeyConstraint baseColumnNames="id" baseTableName="pypi_versions" constraintName="fk_pypi" deferrable="false" initiallyDeferred="false" onDelete="CASCADE" onUpdate="NO ACTION" referencedColumnNames="id" referencedTableName="pypi" validate="true"/>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-108">
-        <addForeignKeyConstraint baseColumnNames="record_id" baseTableName="articles" constraintName="fk_record" deferrable="false" initiallyDeferred="false" onDelete="CASCADE" onUpdate="NO ACTION" referencedColumnNames="id" referencedTableName="records" validate="true"/>
-    </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-109">
+    <changeSet author="dashrath (generated)" id="1784803951223-88">
         <addForeignKeyConstraint baseColumnNames="record_id" baseTableName="github_repos" constraintName="fk_record" deferrable="false" initiallyDeferred="false" onDelete="CASCADE" onUpdate="NO ACTION" referencedColumnNames="id" referencedTableName="records" validate="true"/>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-110">
+    <changeSet author="dashrath (generated)" id="1784803951223-89">
         <addForeignKeyConstraint baseColumnNames="record_id" baseTableName="pypi" constraintName="fk_record" deferrable="false" initiallyDeferred="false" onDelete="CASCADE" onUpdate="NO ACTION" referencedColumnNames="id" referencedTableName="records" validate="true"/>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-111">
+    <changeSet author="dashrath (generated)" id="1784803951223-90">
         <addForeignKeyConstraint baseColumnNames="article_id" baseTableName="pmc_references" constraintName="fk_references_article" deferrable="false" initiallyDeferred="false" onDelete="CASCADE" onUpdate="NO ACTION" referencedColumnNames="id" referencedTableName="pmc_articles" validate="true"/>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-112">
+    <changeSet author="dashrath (generated)" id="1784803951223-91">
         <addForeignKeyConstraint baseColumnNames="repo_id" baseTableName="github_archieved_stats" constraintName="fk_repo" deferrable="false" initiallyDeferred="false" onDelete="CASCADE" onUpdate="NO ACTION" referencedColumnNames="id" referencedTableName="github_repos" validate="true"/>
     </changeSet>
-    <changeSet author="jadams (generated)" id="1778251364339-113">
+    <changeSet author="dashrath (generated)" id="1784803951223-92">
+        <addForeignKeyConstraint baseColumnNames="ingestion_id" baseTableName="known_divergences" constraintName="known_divergences_ingestion_fk" deferrable="false" initiallyDeferred="false" onDelete="CASCADE" onUpdate="NO ACTION" referencedColumnNames="id" referencedTableName="ingestion" validate="true"/>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-93">
+        <addForeignKeyConstraint baseColumnNames="review_id" baseTableName="known_divergences" constraintName="known_divergences_pmc_review_fk" deferrable="false" initiallyDeferred="false" onDelete="CASCADE" onUpdate="NO ACTION" referencedColumnNames="id" referencedTableName="pmc_review" validate="true"/>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-94">
+        <addForeignKeyConstraint baseColumnNames="ingestion_id" baseTableName="pmc_review" constraintName="pmc_review_ingestion_FK" deferrable="false" initiallyDeferred="false" onDelete="CASCADE" onUpdate="NO ACTION" referencedColumnNames="id" referencedTableName="ingestion" validate="true"/>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-95">
+        <addForeignKeyConstraint baseColumnNames="staging_id" baseTableName="pmc_review" constraintName="pmc_review_pmc_articles_DK" deferrable="false" initiallyDeferred="false" onDelete="NO ACTION" onUpdate="NO ACTION" referencedColumnNames="id" referencedTableName="pmc_articles" validate="true"/>
+    </changeSet>
+    <changeSet author="dashrath (generated)" id="1784803951223-96">
         <addForeignKeyConstraint baseColumnNames="repo_id" baseTableName="repo_entity_actions" constraintName="repo_entity_actions_repo_id_fkey" deferrable="false" initiallyDeferred="false" onDelete="NO ACTION" onUpdate="NO ACTION" referencedColumnNames="id" referencedTableName="github_repos" validate="true"/>
+    </changeSet>
+
+    <!-- Curation pipeline: ingestion run metadata columns -->
+    <changeSet author="dashrath" id="dc-20260820-001">
+        <addColumn tableName="ingestion">
+            <column name="run_type" type="varchar(10)" defaultValue="full">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+        <sql>UPDATE ingestion SET run_type = 'full' WHERE run_type IS NULL</sql>
+    </changeSet>
+    <changeSet author="dashrath" id="dc-20260820-002">
+        <addColumn tableName="ingestion">
+            <column name="total_pulled" type="integer">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+    </changeSet>
+    <changeSet author="dashrath" id="dc-20260820-003">
+        <addColumn tableName="ingestion">
+            <column name="auto_approved_count" type="integer" defaultValueNumeric="0">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+    </changeSet>
+    <changeSet author="dashrath" id="dc-20260820-004">
+        <addColumn tableName="ingestion">
+            <column name="pending_review_count" type="integer" defaultValueNumeric="0">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <!-- Fix typo: reviewd_at -> reviewed_at in pmc_review -->
+    <changeSet author="dashrath" id="dc-20260820-005">
+        <renameColumn tableName="pmc_review" oldColumnName="reviewd_at" newColumnName="reviewed_at" columnDataType="timestamp with time zone"/>
     </changeSet>
 </databaseChangeLog>

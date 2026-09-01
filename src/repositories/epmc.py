@@ -265,17 +265,13 @@ class EPMCRepo:
             .subquery()
         )
         
+        # No relationship loading — the /epmc/all-articles endpoint serialises into
+        # PMCArticleCustom which contains scalar fields only. Loading relationships
+        # here added two extra queries per page (article_authors + affiliations)
+        # for data that was immediately discarded, causing timeouts on large datasets.
         return (
             self.db.query(PMCArticle)
             .join(version_subq, and_(PMCArticle.id == version_subq.c.id, version_subq.c.rn == 1))
-            .options(
-                selectinload(PMCArticle.article_authors),
-                selectinload(PMCArticle.affiliations),
-                #selectinload(PMCArticle.fulltexts),
-                #selectinload(PMCArticle.citations),
-                #selectinload(PMCArticle.references),
-
-            )
             .offset(skip)
             .limit(limit)
             .all()
@@ -291,6 +287,25 @@ class EPMCRepo:
 
     def get_all_grants(self, limit: int = 100, skip: int = 0) -> list[Grant]:
         return self.db.query(Grant).offset(skip).limit(limit).all()
+
+    def get_funding_agencies(self, limit: int = 50) -> list[dict]:
+        rows = (
+            self.db.query(Grant.agency, func.count(Grant.id).label("count"))
+            .filter(Grant.agency.isnot(None))
+            .group_by(Grant.agency)
+            .order_by(func.count(Grant.id).desc())
+            .limit(limit)
+            .all()
+        )
+        return [{"agency": agency, "count": int(count)} for agency, count in rows]
+
+    def get_unique_funding_agencies_count(self) -> int:
+        count = (
+            self.db.query(func.count(func.distinct(Grant.agency)))
+            .filter(Grant.agency.isnot(None))
+            .scalar()
+        )
+        return int(count) if count else 0
 
     def get_all_pmc_authors(self, limit: int = 100, skip: int = 0) -> list[PMCAuthor]:
         return self.db.query(PMCAuthor).offset(skip).limit(limit).all()
@@ -1078,23 +1093,106 @@ class EPMCRepo:
         return int(total) if total else 0
 
     def count_unique_authors(self) -> int:
-        return self.db.query(
-            func.count(
-                func.distinct(
-                    func.concat(
-                        func.lower(func.trim(PMCAuthor.firstname)),
-                        " ",
-                        func.lower(func.trim(PMCAuthor.lastname)),
-                        " ",
-                        func.lower(func.trim(PMCAuthor.initials))
-                    )
-                )
+        """
+        Count distinct authors linked to the deduplicated article set.
+        Mirrors the same row_number() dedup used by get_all_articles() so the
+        number is consistent with the 1-row-per-pm_id article count.
+        """
+        version_subq = (
+            self.db.query(
+                PMCArticle.id,
+                func.row_number().over(
+                    partition_by=PMCArticle.pm_id,
+                    order_by=Ingestion.version.desc().nullslast(),
+                ).label("rn"),
             )
-        ).filter(
-            PMCAuthor.firstname.isnot(None),
-            PMCAuthor.lastname.isnot(None),
-            PMCAuthor.initials.isnot(None)
-        ).scalar()
+            .outerjoin(Ingestion, PMCArticle.ingestion_id == Ingestion.id)
+            .subquery()
+        )
+
+        deduped_ids_subq = (
+            self.db.query(PMCArticle.id)
+            .join(version_subq, and_(PMCArticle.id == version_subq.c.id, version_subq.c.rn == 1))
+            .subquery()
+        )
+
+        count = (
+            self.db.query(func.count(func.distinct(ArticleAuthor.author_id)))
+            .filter(ArticleAuthor.article_id.in_(self.db.query(deduped_ids_subq.c.id)))
+            .scalar()
+        )
+        return int(count) if count else 0
         
     def count_articles(self) -> int:
-        return 0;
+        count = self.db.query(func.count(func.distinct(PMCArticle.pm_id))).scalar()
+        return int(count) if count else 0
+
+    def get_articles_for_dashboard(self) -> list[dict]:
+        from sqlalchemy import text
+        sql = """
+            SELECT DISTINCT ON (a.pm_id)
+                a.pm_id,
+                a.title,
+                a.doi,
+                a.pub_year,
+                a.cited_by_count,
+                a.is_open_access,
+                a.abstract_text,
+                a.language,
+                a.affiliation
+            FROM pmc_articles a
+            LEFT JOIN ingestion i ON a.ingestion_id = i.id
+            WHERE a.pm_id IS NOT NULL
+            ORDER BY a.pm_id, i.version DESC NULLS LAST
+        """
+        rows = self.db.execute(text(sql))
+        return [
+            {
+                "pm_id":          r.pm_id or "",
+                "title":          r.title or "",
+                "doi":            r.doi or "",
+                "pub_year":       r.pub_year,
+                "cited_by_count": r.cited_by_count or 0,
+                "is_open_access": str(r.is_open_access).lower() in ("y", "yes", "true", "1"),
+                "abstract_text":  r.abstract_text or "",
+                "language":       r.language or "",
+                "affiliation":    r.affiliation or "",
+            }
+            for r in rows
+        ]
+
+    def get_publication_types(self) -> list[dict]:
+        from sqlalchemy import text
+        sql = """
+            WITH ranked AS (
+                SELECT a.id,
+                       row_number() OVER (
+                           PARTITION BY a.pm_id
+                           ORDER BY i.version DESC NULLS LAST
+                       ) AS rn
+                FROM pmc_articles a
+                LEFT JOIN ingestion i ON a.ingestion_id = i.id
+                WHERE a.pm_id IS NOT NULL
+            ),
+            deduped AS (
+                SELECT r.id FROM ranked r WHERE r.rn = 1
+            )
+            SELECT
+                CASE
+                    WHEN a.pub_type::text ILIKE '%Preprint%'        THEN 'Preprint'
+                    WHEN a.pub_type::text ILIKE '%Review%'          THEN 'Review'
+                    WHEN a.pub_type::text ILIKE '%Comment%'
+                      OR a.pub_type::text ILIKE '%Letter%'
+                      OR a.pub_type::text ILIKE '%Editorial%'       THEN 'Comment / Letter'
+                    WHEN a.pub_type::text ILIKE '%Journal Article%' THEN 'Journal Article'
+                    ELSE 'Other'
+                END AS primary_type,
+                COUNT(*) AS count
+            FROM pmc_articles a
+            JOIN deduped d ON a.id = d.id
+            WHERE a.pub_type IS NOT NULL
+            GROUP BY primary_type
+            ORDER BY count DESC
+        """
+        result = self.db.execute(text(sql))
+        return [{"type": row.primary_type, "count": int(row.count)} for row in result]

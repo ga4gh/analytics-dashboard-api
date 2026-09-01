@@ -3,21 +3,24 @@ from fastapi import APIRouter, HTTPException, Depends, Body
 from sqlalchemy.orm import Session
 import json
 from datetime import datetime, timezone
-
-logger = logging.getLogger(__name__)
-
 from src.models.pmc_article import PMCArticle, PMCArticleCustom, PMCArticleFull, PMCArticleListCustomResponse
 from src.models.pmc_author import PMCAuthor
 from src.models.citation import Citation as CitationModel, CitationList, TotalCitations
 from src.services.epmc import EPMCService as EPMCService
 from src.repositories.epmc import EPMCRepo as EPMCRepo
 from src.services.grant import GrantService as Grant
-from src.config.session import get_session
+from src.config.session import get_session, get_staging_db
 
+
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/epmc", tags=["Articles"])
 
-
 def get_epmc_repo(db: Session = Depends(get_session)) -> EPMCRepo:
+    """Production DB — used by all dashboard/read endpoints."""
+    return EPMCRepo(db)
+
+def get_staging_epmc_repo(db: Session = Depends(get_staging_db)) -> EPMCRepo:
+    """Staging DB — used by ingestion endpoints."""
     return EPMCRepo(db)
 
 
@@ -61,6 +64,15 @@ class EPMC:
             repo: EPMCRepo = Depends(get_epmc_repo),
         ):
             return repo.get_all_grants(limit=limit, skip=skip)
+
+        @self.router.get("/epmc/funding-agencies")
+        async def get_funding_agencies(
+            limit: int = 50,
+            repo: EPMCRepo = Depends(get_epmc_repo),
+        ):
+            agencies = repo.get_funding_agencies(limit=limit)
+            total_unique = repo.get_unique_funding_agencies_count()
+            return {"agencies": agencies, "total_unique": total_unique}
 
         @self.router.get("/epmc/all-pmc-authors")
         async def get_all_pmc_authors(
@@ -161,7 +173,7 @@ class EPMC:
         @self.router.post("/epmc/ingest-pmc-data", response_model=list[PMCArticleFull])
         async def ingest_pmc_data(
             keyword: str = Body(..., embed=True),
-            repo: EPMCRepo = Depends(get_epmc_repo),
+            repo: EPMCRepo = Depends(get_staging_epmc_repo),
         ):
             service = EPMCService(repo)
             grant_service = Grant(repo)
@@ -197,7 +209,7 @@ class EPMC:
         @self.router.post("/epmc/ingest-pmc-grants")
         async def ingest_pmc_grants(
             keyword: str = Body(..., embed=True),
-            repo: EPMCRepo = Depends(get_epmc_repo),
+            repo: EPMCRepo = Depends(get_staging_epmc_repo),
         ):
             """Ingest grants from Europe PMC for a given keyword using GrantService.create_grants."""
             grant_service = Grant(repo)
@@ -225,7 +237,7 @@ class EPMC:
         @self.router.post("/epmc/ingest-pmc-references")
         async def ingest_pmc_references(
             use_db_articles: bool = True,
-            repo: EPMCRepo = Depends(get_epmc_repo),
+            repo: EPMCRepo = Depends(get_staging_epmc_repo),
         ):
             """Ingest references for all articles in the database using EPMCService.insert_references."""
             service = EPMCService(repo)
@@ -317,3 +329,17 @@ class EPMC:
         ):
             service = EPMCService(repo)
             return service.get_cumulative_citations()
+
+        @self.router.get("/epmc/articles-light")
+        async def get_articles_light(
+            repo: EPMCRepo = Depends(get_epmc_repo),
+        ):
+            articles = repo.get_articles_for_dashboard()
+            return {"articles": articles, "article_count": len(articles)}
+
+        @self.router.get("/epmc/publication-types")
+        async def get_publication_types(
+            repo: EPMCRepo = Depends(get_epmc_repo),
+        ):
+            types = repo.get_publication_types()
+            return {"types": types}
