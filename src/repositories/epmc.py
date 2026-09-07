@@ -816,6 +816,14 @@ class EPMCRepo:
             ).scalar_one_or_none()
         )
 
+    def get_review_by_id(self, review_id: int) -> Optional[PMCReview]:
+        """Return a pmc_review row by primary key, or None if not found."""
+        return (
+            self.db.execute(
+                select(PMCReview).where(PMCReview.id == review_id)
+            ).scalar_one_or_none()
+        )
+
     def update_review(self, review_id: int, updates: dict) -> None:
         """Overwrite fields on an existing pmc_review row (used to refresh stale pending rows)."""
         self.db.execute(
