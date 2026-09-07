@@ -858,6 +858,35 @@ class EPMCRepo:
             ).scalar_one_or_none()
         )
 
+    def get_reviews_for_export(self, ingestion_id: Optional[int] = None) -> List[tuple]:
+        """
+        Return (PMCReview, PMCArticle, Ingestion) tuples for pending reviews.
+        If ingestion_id is None, uses the most recent ingestion that has pending rows.
+        """
+        if ingestion_id is None:
+            subq = (
+                select(PMCReview.ingestion_id)
+                .where(PMCReview.review_status == "pending")
+                .order_by(PMCReview.ingestion_id.desc())
+                .limit(1)
+                .scalar_subquery()
+            )
+            ingestion_id = self.db.execute(select(subq)).scalar_one_or_none()
+            if ingestion_id is None:
+                return []
+
+        rows = (
+            self.db.execute(
+                select(PMCReview, PMCArticle, Ingestion)
+                .outerjoin(PMCArticle, PMCReview.staging_id == PMCArticle.id)
+                .join(Ingestion, PMCReview.ingestion_id == Ingestion.id)
+                .where(PMCReview.ingestion_id == ingestion_id)
+                .where(PMCReview.review_status == "pending")
+                .order_by(PMCReview.review_type, PMCReview.id)
+            ).all()
+        )
+        return rows
+
     def get_active_known_divergences(
         self, epmc_id: Optional[str], doi: Optional[str]
     ) -> List[KnownDivergence]:
