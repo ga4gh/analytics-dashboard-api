@@ -12,6 +12,7 @@ from src.repositories.epmc import EPMCRepo as EPMCRepo
 from src.services.grant import GrantService as Grant
 from src.services.auto_classify import AutoClassifyService
 from src.services.export import build_csv, build_excel
+from src.services.storage import upload_to_s3
 from src.config.session import get_session, get_staging_db
 
 
@@ -412,12 +413,22 @@ class EPMC:
             with open(filepath, "wb") as f:
                 f.write(content)
 
+            # Upload to S3 if configured; fall back to local file path
+            download_url: Optional[str] = None
+            try:
+                download_url = upload_to_s3(content, filename)
+                logger.info("EXPORT S3 upload complete file=%s", filename)
+            except RuntimeError:
+                logger.info("EXPORT_S3_BUCKET not set — skipping S3 upload, file saved locally")
+            except Exception as e:
+                logger.warning("EXPORT S3 upload failed, file saved locally: %s", e)
+
             logger.info(
                 "EXPORT finished ingestion_id=%s total=%d new=%d changed=%d file=%s",
                 effective_id, len(review_rows), new_count, changed_count, filepath,
             )
 
-            return {
+            response = {
                 "status": "success",
                 "message": f"Export finished for ingestion_id: {effective_id}",
                 "ingestion_id": effective_id,
@@ -429,3 +440,7 @@ class EPMC:
                 "filename": filename,
                 "file_path": filepath,
             }
+            if download_url:
+                response["download_url"] = download_url
+
+            return response
