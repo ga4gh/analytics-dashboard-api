@@ -138,7 +138,7 @@ def apply_review_decisions(
                 "review_status": new_status,
                 "reviewed_by": reviewed_by,
                 "reviewed_at": now,
-                "rejection_reason": row.comment if new_status == "rejected" else None,
+                "review_comment": row.comment,
             })
 
             event_type = (
@@ -168,6 +168,9 @@ def apply_review_decisions(
         except Exception as e:
             result.errors.append(f"review_id {row.review_id}: {e}")
             logger.exception("IMPORT error processing review_id=%d", row.review_id)
+
+    if result.processed > 0:
+        staging_repo.commit_to_db()
 
     logger.info(
         "IMPORT apply complete processed=%d skipped=%d not_found=%d errors=%d",
