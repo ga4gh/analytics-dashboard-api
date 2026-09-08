@@ -40,6 +40,12 @@ Parameters:
     Default: an-db
   ExecutionRole:
     Type: String
+  TaskRole:
+    Type: String
+    Description: ARN of the IAM role assumed by the running container (grants S3 and other service access)
+  ExportS3Bucket:
+    Type: String
+    Description: S3 bucket name for review queue exports
   CertificateArn:
     Type: String
     Description: ARN of the ACM certificate for the backend domain (api.dashboard.ga4gh.org)
@@ -149,6 +155,7 @@ Resources:
       Memory: 1024
       NetworkMode: awsvpc
       ExecutionRoleArn: !Ref ExecutionRole
+      TaskRoleArn: !Ref TaskRole
       RequiresCompatibilities:
         - FARGATE
       RuntimePlatform:
@@ -167,6 +174,8 @@ Resources:
           Environment:
             - Name: DATABASE_URL
               Value: !Ref DBURL
+            - Name: EXPORT_S3_BUCKET
+              Value: !Ref ExportS3Bucket
           PortMappings:
             - ContainerPort: !Ref ParamContainerPort
               HostPort: !Ref HostPort
