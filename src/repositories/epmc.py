@@ -12,7 +12,7 @@ import json
 
 from sqlalchemy.orm import Session, selectinload, raiseload
 from sqlalchemy.exc import OperationalError
-from sqlalchemy import func, and_, or_, select
+from sqlalchemy import func, and_, or_, select, update as sa_update
 from sqlalchemy.sql import literal_column
 from src.config.constants import COUNTRIES, ALIASES
 
@@ -23,6 +23,9 @@ from src.models.entities.citations import Citation, Reference
 from sqlalchemy import func
 from src.models.entities.record import Record
 from src.models.entities.ingestion import Ingestion
+from src.models.entities.audit_log import AuditLog
+from src.models.entities.pmc_review import PMCReview
+from src.models.entities.known_divergence import KnownDivergence
 class EPMCRepo:
     def __init__(self, db: Session):
         
@@ -762,6 +765,140 @@ class EPMCRepo:
         except Exception:
             logger.warning("Could not parse max ingestion version: %r", max_ver)
             return 0
+
+    def get_last_ingestion_date(self) -> Optional[datetime]:
+        """Return the most recent ingested_at timestamp of a SUCCESSFUL run.
+
+        A run is considered successful when total_pulled is not NULL — that value
+        is written by update_ingestion_counts() only after classification completes.
+        Failed runs leave total_pulled as NULL and are excluded so their committed
+        ingestion row does not corrupt the next delta window.
+        """
+        return (
+            self.db.query(func.max(Ingestion.ingested_at))
+            .filter(Ingestion.total_pulled.isnot(None))
+            .scalar()
+        )
+
+    def update_ingestion_counts(self, ingestion_id: int, counts: dict) -> None:
+        self.db.execute(
+            sa_update(Ingestion).where(Ingestion.id == ingestion_id).values(**counts)
+        )
+        self.db.flush()
+
+    # ------------------------------------------------------------------
+    # Curation — audit log
+    # ------------------------------------------------------------------
+
+    def insert_audit_log(self, audit_log: AuditLog) -> int:
+        self.db.add(audit_log)
+        self.db.flush()
+        return audit_log.id
+
+    # ------------------------------------------------------------------
+    # Curation — review
+    # ------------------------------------------------------------------
+
+    def insert_review(self, review: PMCReview) -> int:
+        self.db.add(review)
+        self.db.flush()
+        return review.id
+
+    def get_pending_review_by_epmc_id(self, epmc_id: str) -> Optional[PMCReview]:
+        """Return the active pending pmc_review row for an article, if one exists."""
+        return (
+            self.db.execute(
+                select(PMCReview)
+                .where(PMCReview.epmc_id == epmc_id)
+                .where(PMCReview.review_status == "pending")
+                .order_by(PMCReview.id.desc())
+                .limit(1)
+            ).scalar_one_or_none()
+        )
+
+    def update_review(self, review_id: int, updates: dict) -> None:
+        """Overwrite fields on an existing pmc_review row (used to refresh stale pending rows)."""
+        self.db.execute(
+            sa_update(PMCReview).where(PMCReview.id == review_id).values(**updates)
+        )
+        self.db.flush()
+
+    # ------------------------------------------------------------------
+    # Curation — article lookups (used by AutoClassifyService)
+    # ------------------------------------------------------------------
+
+    def get_staged_articles(self, ingestion_id: int) -> List[PMCArticle]:
+        """Return all pmc_articles rows written in a given ingestion run."""
+        return (
+            self.db.execute(select(PMCArticle).where(PMCArticle.ingestion_id == ingestion_id))
+            .scalars()
+            .all()
+        )
+
+    def get_article_by_epmc_id(self, epmc_id: str) -> Optional[PMCArticle]:
+        # Use first() — production DB may have duplicate epmc_id rows from pre-curation
+        # data. Take the row with the highest id (most recently approved version).
+        return (
+            self.db.execute(
+                select(PMCArticle)
+                .where(PMCArticle.epmc_id == epmc_id)
+                .order_by(PMCArticle.id.desc())
+                .limit(1)
+            ).scalar_one_or_none()
+        )
+
+    def get_article_by_doi(self, doi: str) -> Optional[PMCArticle]:
+        # Same defensive approach for doi lookups.
+        return (
+            self.db.execute(
+                select(PMCArticle)
+                .where(PMCArticle.doi == doi)
+                .order_by(PMCArticle.id.desc())
+                .limit(1)
+            ).scalar_one_or_none()
+        )
+
+    def get_reviews_for_export(self, ingestion_id: Optional[int] = None) -> List[tuple]:
+        """
+        Return (PMCReview, PMCArticle, Ingestion) tuples for pending reviews.
+        If ingestion_id is None, uses the most recent ingestion that has pending rows.
+        """
+        if ingestion_id is None:
+            subq = (
+                select(PMCReview.ingestion_id)
+                .where(PMCReview.review_status == "pending")
+                .order_by(PMCReview.ingestion_id.desc())
+                .limit(1)
+                .scalar_subquery()
+            )
+            ingestion_id = self.db.execute(select(subq)).scalar_one_or_none()
+            if ingestion_id is None:
+                return []
+
+        rows = (
+            self.db.execute(
+                select(PMCReview, PMCArticle, Ingestion)
+                .outerjoin(PMCArticle, PMCReview.staging_id == PMCArticle.id)
+                .join(Ingestion, PMCReview.ingestion_id == Ingestion.id)
+                .where(PMCReview.ingestion_id == ingestion_id)
+                .where(PMCReview.review_status == "pending")
+                .order_by(PMCReview.review_type, PMCReview.id)
+            ).all()
+        )
+        return rows
+
+    def get_active_known_divergences(
+        self, epmc_id: Optional[str], doi: Optional[str]
+    ) -> List[KnownDivergence]:
+        """Return active known_divergence rows for a given article identity."""
+        if not epmc_id and not doi:
+            return []
+        query = select(KnownDivergence).where(KnownDivergence.active.is_(True))
+        if epmc_id:
+            query = query.where(KnownDivergence.epmc_id == epmc_id)
+        else:
+            query = query.where(KnownDivergence.doi == doi)
+        return self.db.execute(query).scalars().all()
         
     def get_all_latest_entries(self, pm_id: Optional[str] = None, limit: int = 100, skip: int = 0) -> dict[str, list[Any]]:
         """

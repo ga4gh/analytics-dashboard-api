@@ -1,5 +1,6 @@
 import logging
-from fastapi import APIRouter, HTTPException, Depends, Body
+from typing import Optional
+from fastapi import APIRouter, HTTPException, Depends, Body, Query
 from sqlalchemy.orm import Session
 import json
 from datetime import datetime, timezone
@@ -9,6 +10,9 @@ from src.models.citation import Citation as CitationModel, CitationList, TotalCi
 from src.services.epmc import EPMCService as EPMCService
 from src.repositories.epmc import EPMCRepo as EPMCRepo
 from src.services.grant import GrantService as Grant
+from src.services.auto_classify import AutoClassifyService
+from src.services.export import build_csv, build_excel
+from src.services.storage import upload_to_s3
 from src.config.session import get_session, get_staging_db
 
 
@@ -173,37 +177,65 @@ class EPMC:
         @self.router.post("/epmc/ingest-pmc-data", response_model=list[PMCArticleFull])
         async def ingest_pmc_data(
             keyword: str = Body(..., embed=True),
-            repo: EPMCRepo = Depends(get_staging_epmc_repo),
+            from_date: Optional[str] = Body(None, embed=True),
+            to_date: Optional[str] = Body(None, embed=True),
+            staging_repo: EPMCRepo = Depends(get_staging_epmc_repo),
+            production_repo: EPMCRepo = Depends(get_epmc_repo),
         ):
-            service = EPMCService(repo)
-            grant_service = Grant(repo)
+            service = EPMCService(staging_repo)
+
+            # ── Phase 1: Delta pull (in-memory, no DB writes) ──────────────────
+            # Determine the delta window: explicit from_date > auto-detect from last
+            # ingestion > skip (first ever run).
+            last_date = staging_repo.get_last_ingestion_date()
+            effective_from = from_date or (last_date.strftime("%Y-%m-%d") if last_date else None)
+
+            delta_epmc_ids: Optional[set] = None
+            if effective_from:
+                delta_epmc_ids = service.fetch_delta_epmc_ids(keyword, effective_from, to_date)
+
+            run_type = "full" if delta_epmc_ids is None else "full+delta"
+            service.record_ingestion_started(keyword, run_type=run_type)
 
             try:
-                logger.info("Ingesting PMC data for keyword: %s", keyword)
-                result = service.insert_articles_by_keyword(keyword, created_by="system")
-                #citations_result = service.insert_citations(created_by="system")
-                references_result = service.insert_references(created_by="system")
-                grant_result = grant_service.create_grants(keyword)
+                # ── Phase 2: Full pull (always writes all articles to staging) ──
+                logger.info(
+                    "Ingesting PMC data: keyword=%s run_type=%s delta_ids=%s",
+                    keyword, run_type,
+                    f"{len(delta_epmc_ids)} updated articles" if delta_epmc_ids is not None else "none",
+                )
+                counts = service.insert_articles_by_keyword(keyword, created_by="system", run_type=run_type)
+                logger.info(
+                    "--- PULL COMPLETE | ingestion_id=%s articles=%d authors=%d "
+                    "affiliations=%d fulltexts=%d ---",
+                    service.ingestion_id,
+                    counts.get("articles", 0),
+                    counts.get("authors", 0),
+                    counts.get("affiliations", 0),
+                    counts.get("fulltexts", 0),
+                )
 
-                # Write a JSON-line entry with ingestion results and timestamp.
-                try:
-                    log_entry = {
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
-                        "keyword": keyword,
-                        "articles": result,
-                        #"citations": citations_result,
-                        "references": references_result,
-                        "grants": grant_result,
-                    }
-                    with open("ingestion_log.txt", "a", encoding="utf-8") as lf:
-                        lf.write(json.dumps(log_entry, default=str) + "\n")
-                except Exception:
-                    # Don't let logging failures break ingestion
-                    pass
+                # ── Classification: uses Phase 1 delta set to drive diff ────────
+                logger.info("--- CLASSIFICATION STARTING | ingestion_id=%s ---", service.ingestion_id)
+                classify_service = AutoClassifyService(staging_repo, production_repo)
+                classify_result = classify_service.classify_ingestion_run(
+                    ingestion_id=service.ingestion_id,
+                    delta_epmc_ids=delta_epmc_ids,
+                    created_by="system",
+                )
+                service.record_ingestion_completed(service.ingestion_id, keyword, classify_result)
+
+                # Single commit — articles + classification + reviews + audit logs all atomic
+                staging_repo.commit_to_db()
+
             except Exception as e:
+                staging_repo.rollback()
+                # ingestion_id was rolled back — pass None so the audit log
+                # does not reference a non-existent ingestion row
+                service.record_ingestion_failed(None, keyword, str(e))
                 raise HTTPException(status_code=500, detail=f"Ingestion failed: {e}")
 
-            articles = repo.get_all_articles()
+            articles = staging_repo.get_all_articles()
             return [PMCArticleFull.model_validate(article) for article in articles]
 
         @self.router.post("/epmc/ingest-pmc-grants")
@@ -343,3 +375,72 @@ class EPMC:
         ):
             types = repo.get_publication_types()
             return {"types": types}
+
+        @self.router.get("/epmc/review/export")
+        async def export_review_queue(
+            ingestion_id: Optional[int] = Query(None, description="Ingestion ID to export. Defaults to latest with pending reviews."),
+            format: str = Query("excel", description="Output format: 'excel' or 'csv'"),
+            staging_repo: EPMCRepo = Depends(get_staging_epmc_repo),
+        ):
+            """
+            Generates the review queue export file and saves it to the exports/ directory.
+            Returns a JSON response with the file location and summary — no file content in the response.
+            """
+            import os
+            try:
+                review_rows = staging_repo.get_reviews_for_export(ingestion_id=ingestion_id)
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Failed to fetch reviews: {e}")
+
+            if not review_rows:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"No pending reviews found{f' for ingestion_id {ingestion_id}' if ingestion_id else ''}.",
+                )
+
+            effective_id = review_rows[0][0].ingestion_id
+            new_count = sum(1 for r, _, _ in review_rows if r.review_type == "new")
+            changed_count = sum(1 for r, _, _ in review_rows if r.review_type == "changed")
+            ingested_at = review_rows[0][2].ingested_at.strftime("%Y-%m-%d %H:%M UTC") if review_rows[0][2].ingested_at else ""
+            ext = "csv" if format.lower() == "csv" else "xlsx"
+            filename = f"review_queue_{effective_id}.{ext}"
+
+            exports_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "exports"))
+            os.makedirs(exports_dir, exist_ok=True)
+            filepath = os.path.join(exports_dir, filename)
+
+            content = build_csv(review_rows) if format.lower() == "csv" else build_excel(review_rows)
+            with open(filepath, "wb") as f:
+                f.write(content)
+
+            # Upload to S3 if configured; fall back to local file path
+            download_url: Optional[str] = None
+            try:
+                download_url = upload_to_s3(content, filename)
+                logger.info("EXPORT S3 upload complete file=%s", filename)
+            except RuntimeError:
+                logger.info("EXPORT_S3_BUCKET not set — skipping S3 upload, file saved locally")
+            except Exception as e:
+                logger.warning("EXPORT S3 upload failed, file saved locally: %s", e)
+
+            logger.info(
+                "EXPORT finished ingestion_id=%s total=%d new=%d changed=%d file=%s",
+                effective_id, len(review_rows), new_count, changed_count, filepath,
+            )
+
+            response = {
+                "status": "success",
+                "message": f"Export finished for ingestion_id: {effective_id}",
+                "ingestion_id": effective_id,
+                "ingested_at": ingested_at,
+                "total_pending_reviews": len(review_rows),
+                "new_articles": new_count,
+                "changed_articles": changed_count,
+                "format": format.lower(),
+                "filename": filename,
+                "file_path": filepath,
+            }
+            if download_url:
+                response["download_url"] = download_url
+
+            return response
