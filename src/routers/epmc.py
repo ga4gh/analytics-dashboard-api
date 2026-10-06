@@ -1,6 +1,6 @@
 import logging
 from typing import Optional
-from fastapi import APIRouter, HTTPException, Depends, Body, Query
+from fastapi import APIRouter, HTTPException, Depends, Body, Query, UploadFile, File
 from sqlalchemy.orm import Session
 import json
 from datetime import datetime, timezone
@@ -13,6 +13,7 @@ from src.services.grant import GrantService as Grant
 from src.services.auto_classify import AutoClassifyService
 from src.services.export import build_csv, build_excel
 from src.services.storage import upload_to_s3
+from src.services.import_review import parse_review_file, apply_review_decisions
 from src.config.session import get_session, get_staging_db
 
 
@@ -444,3 +445,42 @@ class EPMC:
                 response["download_url"] = download_url
 
             return response
+
+        @self.router.post("/epmc/review/import")
+        async def import_review_decisions(
+            reviewed_by: str = Query(..., description="Name or email of the person who filled the review file"),
+            file: UploadFile = File(..., description="Completed review Excel or CSV file"),
+            staging_repo: EPMCRepo = Depends(get_staging_epmc_repo),
+        ):
+            """
+            Import review decisions from a completed Excel or CSV file.
+            Updates pmc_review rows in staging and writes audit log entries.
+            Does NOT promote records to production — that is a separate step.
+            """
+            allowed = {".xlsx", ".xls", ".csv"}
+            suffix = "." + file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else ""
+            if suffix not in allowed:
+                raise HTTPException(status_code=400, detail=f"Unsupported file type '{suffix}'. Upload an Excel or CSV file.")
+
+            content = await file.read()
+
+            try:
+                parsed = parse_review_file(content, file.filename)
+            except ValueError as e:
+                raise HTTPException(status_code=422, detail=str(e))
+
+            result = apply_review_decisions(parsed, staging_repo, reviewed_by)
+
+            return {
+                "status": "success",
+                "message": f"Import complete — {result.processed} decision(s) applied",
+                "reviewed_by": reviewed_by,
+                "filename": file.filename,
+                "total_rows_in_file": len(parsed.rows) + parsed.skipped_empty + len(parsed.invalid),
+                "skipped_empty_decision": parsed.skipped_empty,
+                "invalid_rows": parsed.invalid,
+                "processed": result.processed,
+                "skipped_already_reviewed": result.skipped,
+                "not_found": result.not_found,
+                "errors": result.errors,
+            }
