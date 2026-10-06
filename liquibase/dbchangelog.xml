@@ -1137,4 +1137,15 @@
     <changeSet author="dashrath" id="dc-20260820-005">
         <renameColumn tableName="pmc_review" oldColumnName="reviewd_at" newColumnName="reviewed_at" columnDataType="timestamp with time zone"/>
     </changeSet>
+    <changeSet author="dashrath" id="dc-20260820-006">
+        <addColumn tableName="ingestion">
+            <column name="unresolvable_count" type="integer" defaultValueNumeric="0">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet author="dashrath" id="dc-20260827-001">
+        <addAutoIncrement tableName="pmc_review" columnName="id" columnDataType="INTEGER"/>
+    </changeSet>
 </databaseChangeLog>

@@ -3,21 +3,23 @@ Staging
 Step 1:
 Base Infra: One time run to initialize DB instance, DB Password, Log groups, ECS Cluster
 To rerun: Delete existing template and execute
-aws cloudformation deploy \               
-  --template-file base_infra.yml \               
-  --stack-name analytics-dashboard-staging-base \
+aws cloudformation deploy \
+  --template-file base_infra.yml \
+  --stack-name analytics-dashboard \
   --region us-east-2 \
+  --capabilities CAPABILITY_NAMED_IAM \
   --parameter-overrides \
+    StaticStackName=analytics-dashboard \
     Environment=staging \
-    ParamDBName=analytics_dashboard_staging_db \
-    ParamUsername=analytics_dashboard_staging_user \
-    PubliclyAccessible=true \
-    BackupRetentionPeriod=30 \
     VpcId=vpc-01c8c42ad7cf34b4b \
     VpcCidr=10.0.0.0/16 \
     SubnetA=subnet-0f26c31e6c9578717 \
     SubnetB=subnet-00663ce89eb47404f \
-    SubnetC=subnet-08b697026fc4502e5
+    SubnetC=subnet-08b697026fc4502e5 \
+    ParamDBName=analytics_dashboard_staging_db \
+    ParamUsername=analytics_dashboard_staging_user \
+    PubliclyAccessible=true \
+    BackupRetentionPeriod=7
 
 Step 2:
 Migrations
@@ -96,22 +98,40 @@ Deploy backend
 
 cd /Users/dashrath/Documents/GA4GH/Analytics/analytics-dashboard/infrastructure
 
+# Get the correct password
+DBPASS=$(aws secretsmanager get-secret-value \
+  --secret-id analytics-dashboard-staging-DBPassword \
+  --version-stage AWSCURRENT \
+  --region us-east-2 \
+  --query 'SecretString' --output text)
+
+# Get the rest of the stack params (VPC, subnets, etc.)
+aws cloudformation describe-stacks \
+  --stack-name analytics-dashboard-staging-backend \
+  --region us-east-2 \
+  --query 'Stacks[0].Parameters' --output json
+
 aws cloudformation deploy \
-  --template-file backend.yml \
+  --template-file infrastructure/backend.yml \
   --stack-name analytics-dashboard-staging-backend \
   --region us-east-2 \
   --capabilities CAPABILITY_NAMED_IAM \
   --parameter-overrides \
     StaticStackName=analytics-dashboard \
     Environment=staging \
-    ApiImage=282236276875.dkr.ecr.us-east-2.amazonaws.com/analytics-dashboard-api:latest \
     VpcId=vpc-01c8c42ad7cf34b4b \
     SubnetA=subnet-0f26c31e6c9578717 \
     SubnetB=subnet-00663ce89eb47404f \
     SubnetC=subnet-08b697026fc4502e5 \
-    ExecutionRole=arn:aws:iam::282236276875:role/ECSFargateExecutionRole-TT \
+    HostPort=8000 \
+    ParamContainerPort=8000 \
+    ShortName=an-db \
+    Prefix=ecs \
     Region=us-east-2 \
-    DBURL="postgresql://analytics_dashboard_staging_user:pwd@analytics-dashboard-staging-base-database-verhcap8spla.c0q4keadjybw.us-east-2.rds.amazonaws.com:5432/analytics_dashboard_staging_db?sslmode=require"
+    ExecutionRole=arn:aws:iam::282236276875:role/ECSFargateExecutionRole-TT \
+    ApiImage=282236276875.dkr.ecr.us-east-2.amazonaws.com/analytics-dashboard-api:latest \
+    DBURL="postgresql://analytics_dashboard_staging_user:${DBPASS}@analytics-dashboard-staging-base-database-verhcap8spla.c0q4keadjybw.us-east-2.rds.amazonaws.com:5432/analytics_dashboard_staging_db?sslmode=require" \
+    CertificateArn=arn:aws:acm:us-east-2:282236276875:certificate/72a8fde8-ce94-4da7-ba72-57aa225aa695
 
 Step 4:
 Deploy Frontend
@@ -126,7 +146,7 @@ aws cloudformation deploy \
     StaticStackName=analytics-dashboard \
     Environment=staging \
     FrontEndImage=282236276875.dkr.ecr.us-east-2.amazonaws.com/analytics-dashboard-ui:latest \
-    ApiBaseUrl=http://an-db-staging-backend-alb-301627353.us-east-2.elb.amazonaws.com:8000 \
+    ApiBaseUrl=https://api.dashboard.ga4gh.org \     
     VpcId=vpc-01c8c42ad7cf34b4b \
     SubnetA=subnet-0f26c31e6c9578717 \
     SubnetB=subnet-00663ce89eb47404f \
@@ -134,7 +154,7 @@ aws cloudformation deploy \
     ExecutionRole=arn:aws:iam::282236276875:role/ECSFargateExecutionRole-TT \
     Region=us-east-2 \
     ClusterName=analytics-dashboard-staging-ui-cluster \
-    CertificateArn=arn:aws:acm:us-east-2:282236276875:certificate/ae6d656e-a776-4391-932c-24b3aa4d0c4c
+    CertificateArn=arn:aws:acm:us-east-2:282236276875:certificate/72a8fde8-ce94-4da7-ba72-57aa225aa695
 
 
 Update service:

@@ -40,6 +40,9 @@ Parameters:
     Default: an-db
   ExecutionRole:
     Type: String
+  CertificateArn:
+    Type: String
+    Description: ARN of the ACM certificate for the backend domain (api.dashboard.ga4gh.org)
 
 Resources:
 
@@ -87,6 +90,25 @@ Resources:
       Port:
         Ref: HostPort
       Protocol: HTTP
+
+  ALBHttpsListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    DependsOn: [
+      ALBBalancer,
+      ALBTargetGroup
+    ]
+    Properties:
+      DefaultActions:
+        - TargetGroupArn:
+            Ref: ALBTargetGroup
+          Type: forward
+      LoadBalancerArn:
+        Ref: ALBBalancer
+      Port: 443
+      Protocol: HTTPS
+      Certificates:
+        - CertificateArn: !Ref CertificateArn
+      SslPolicy: ELBSecurityPolicy-TLS13-1-2-2021-06
 
   ECSService:
     Type: AWS::ECS::Service

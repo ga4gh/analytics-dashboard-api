@@ -1,5 +1,6 @@
 import logging
-from typing import Counter, List
+from datetime import datetime
+from typing import Any, Counter, List, Optional
 from src.clients.epmc import EPMCClient
 from src.models.citation import CitationOverYears, TotalCitations
 from src.models.entities.pmc_article import PMCArticle
@@ -8,6 +9,8 @@ from src.models.entities.extras import Grant, FullText, Keyword
 from src.models.entities.citations import Citation, Reference
 from src.models.entities.record import Record, RecordType, Source, Status, ProductType
 from src.models.entities.ingestion import Ingestion
+from src.models.entities.audit_log import AuditLog
+from src.models.entities.enums import AuditEventType
 from src.repositories.epmc import EPMCRepo
 
 logger = logging.getLogger(__name__)
@@ -28,6 +31,29 @@ class EPMCService:
         if value is None:
             return []
         return value if isinstance(value, list) else [value]
+
+    def fetch_delta_epmc_ids(
+        self, keyword: str, from_date: str, to_date: Optional[str] = None
+    ) -> set:
+        """
+        Phase 1 — fetch delta article IDs from EPMC (in-memory only, no DB writes).
+
+        Returns the set of epmc_ids that have been updated in the given date window.
+        These IDs are passed to AutoClassifyService so only delta-flagged articles
+        are diffed against production; all other production articles are skipped.
+        """
+        effective_to = to_date or datetime.utcnow().strftime("%Y-%m-%d")
+        logger.info(
+            "Phase 1 — delta pull (in-memory): keyword=%s from_date=%s to_date=%s",
+            keyword, from_date, effective_to,
+        )
+        json_response = self.epmc_client.get_delta_articles(keyword, from_date, effective_to)
+        results = json_response.get("resultList", {}).get("result", []) or []
+        epmc_ids = {r.get("id") for r in results if r.get("id")}
+        logger.info(
+            "Phase 1 — delta pull complete: %d articles updated since %s", len(epmc_ids), from_date
+        )
+        return epmc_ids
 
     @staticmethod
     def _positive_int(value):
@@ -71,14 +97,78 @@ class EPMCService:
         except Exception:
             logger.warning("Could not fetch highest ingestion version; defaulting to 1")
             return 1
-        
-    def insert_articles_by_keyword(self, keyword: str, created_by: str) -> dict[str, int]:
 
+    # ------------------------------------------------------------------
+    # Ingestion lifecycle audit events
+    # ------------------------------------------------------------------
+
+    def record_ingestion_started(self, keyword: str, run_type: str = "full", created_by: str = "system") -> None:
+        self.epmc_repo.insert_audit_log(AuditLog(
+            event_type=AuditEventType.INGESTION_STARTED,
+            entity_type="ingestion",
+            new_value={"keyword": keyword, "run_type": run_type},
+            action_by=created_by,
+            action_at=datetime.utcnow(),
+        ))
+
+    def record_ingestion_completed(
+        self, ingestion_id: int, keyword: str, classify_result: Any, created_by: str = "system"
+    ) -> None:
+        self.epmc_repo.insert_audit_log(AuditLog(
+            event_type=AuditEventType.INGESTION_COMPLETED,
+            entity_type="ingestion",
+            entity_id=str(ingestion_id),
+            ingestion_id=ingestion_id,
+            new_value={
+                "keyword": keyword,
+                "total_pulled": classify_result.total_pulled,
+                "new_count": classify_result.new_count,
+                "unchanged_count": classify_result.unchanged_count,
+                "changed_count": classify_result.changed_count,
+                "auto_approved_count": classify_result.auto_approved_count,
+                "pending_review_count": classify_result.pending_review_count,
+                "unresolvable_count": classify_result.unresolvable_count,
+            },
+            action_by=created_by,
+            action_at=datetime.utcnow(),
+        ))
+
+    def record_ingestion_failed(
+        self, ingestion_id: Optional[int], keyword: str, error: str, created_by: str = "system"
+    ) -> None:
+        try:
+            self.epmc_repo.insert_audit_log(AuditLog(
+                event_type=AuditEventType.INGESTION_FAILED,
+                entity_type="ingestion",
+                entity_id=str(ingestion_id) if ingestion_id else None,
+                ingestion_id=ingestion_id,
+                new_value={"error": error, "keyword": keyword},
+                action_by=created_by,
+                action_at=datetime.utcnow(),
+            ))
+            self.epmc_repo.commit_to_db()
+        except Exception:
+            logger.exception("Failed to write INGESTION_FAILED audit log")
+
+    def insert_articles_by_keyword(
+        self,
+        keyword: str,
+        created_by: str,
+        run_type: str = "full",
+    ) -> dict[str, int]:
+        # Phase 2 — always a full pull. Delta classification is handled separately
+        # in Phase 1 (fetch_delta_epmc_ids) before this method is called.
+        logger.info("Phase 2 — full pull: keyword=%s run_type=%s", keyword, run_type)
         json_response = self.epmc_client.get_articles(keyword)
         results = json_response.get("resultList", {}).get("result", []) or []
 
         ingestion_version = self._next_ingestion_version()
-        ingestion_model = self.epmc_client.create_ingestion(ingestion_version, created_by=created_by)
+        ingestion_model = self.epmc_client.create_ingestion(
+            ingestion_version,
+            keyword=keyword,
+            run_type=run_type,
+            created_by=created_by,
+        )
         ingestion_id = self.epmc_repo.insert_or_update(ingestion_model, Ingestion, False)
         self.ingestion_id = ingestion_id
 
@@ -103,6 +193,9 @@ class EPMCService:
                 article_id = self.epmc_repo.insert_or_update(article_entity, PMCArticle, is_update)
                 counts["articles"] += 1
                 self.ingested_articles[article.get("id")] = article_id
+
+                if counts["articles"] % 10 == 0:
+                    logger.info("Progress: %d/%d articles processed...", counts["articles"], len(results))
 
                 for cite in (citation_data.get("citationList") or {}).get("citation") or []:
                     existing_citation = False
@@ -175,11 +268,9 @@ class EPMCService:
                             counts["affiliations"] += 1
                             fallback_affiliation_order += 1
             
-            #ingestion_model = self.epmc_client.update_ingestion(self.ingestion_id, counts["articles"])    
-            #self.epmc_repo.update_ingestion_count(ingestion_model, Ingestion) 
-            self.epmc_repo.commit_to_db()
+            ingestion_model = self.epmc_client.update_ingestion(self.ingestion_id, counts["articles"])
+            self.epmc_repo.update_ingestion_count(ingestion_model, Ingestion)
         except Exception:
-            self.epmc_repo.rollback()
             raise
         logger.info("Article ingestion complete: %s", counts)
         return counts
@@ -221,13 +312,20 @@ class EPMCService:
         else:
             # Use articles from recent ingestion (self.ingested_articles key=pm_id, value=internal_id)
             article_map = self.ingested_articles
-            if not article_map:
+            if article_map is None:
                 raise ValueError("Ingestion ID is not set and use_db_articles is False. Please run insert_articles_by_keyword first or set use_db_articles=True.")
+            if not article_map:
+                logger.info("insert_references: no articles in this ingestion run, skipping")
+                return counts
 
-        # Create ingestion if needed (for new reference records)
+        # Create ingestion if needed (for standalone reference ingestion with no prior article run)
         if self.ingestion_id is None:
             ingestion_version = self._next_ingestion_version()
-            ingestion_model = self.epmc_client.create_ingestion(ingestion_version, created_by)
+            ingestion_model = self.epmc_client.create_ingestion(
+                ingestion_version,
+                run_type="full",
+                created_by=created_by,
+            )
             self.ingestion_id = self.epmc_repo.insert_or_update(ingestion_model, Ingestion, False)
 
         try:

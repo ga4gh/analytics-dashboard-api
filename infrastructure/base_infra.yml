@@ -63,6 +63,10 @@ Resources:
           ToPort: 5432
           SourcePrefixListId: pl-075eab34a5b428114
         - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
           FromPort: 3000
           ToPort: 3000
           CidrIp: 0.0.0.0/0
