@@ -1341,3 +1341,58 @@ class EPMCRepo:
         """
         result = self.db.execute(text(sql))
         return [{"type": row.primary_type, "count": int(row.count)} for row in result]
+
+    # ------------------------------------------------------------------
+    # Promotion — staging repo methods
+    # ------------------------------------------------------------------
+
+    def get_approved_reviews(self, ingestion_id: int) -> List[PMCReview]:
+        """Return all approved pmc_review rows for an ingestion that have not yet been promoted."""
+        return (
+            self.db.execute(
+                select(PMCReview)
+                .where(PMCReview.ingestion_id == ingestion_id)
+                .where(PMCReview.review_status == "approved")
+                .order_by(PMCReview.review_type, PMCReview.id)
+            )
+            .scalars()
+            .all()
+        )
+
+    def mark_review_promoted(self, review_id: int) -> None:
+        """Mark a pmc_review row as promoted after its article has been written to production."""
+        self.db.execute(
+            sa_update(PMCReview)
+            .where(PMCReview.id == review_id)
+            .values(review_status="promoted")
+        )
+        self.db.flush()
+
+    # ------------------------------------------------------------------
+    # Promotion — production repo methods
+    # ------------------------------------------------------------------
+
+    def insert_article(self, article: PMCArticle) -> int:
+        """Insert a new article into production. Returns the new primary key."""
+        self.db.add(article)
+        self.db.flush()
+        return article.id
+
+    def update_article_fields(self, epmc_id: str, fields: dict) -> None:
+        """Apply a dict of field updates to an existing production article by epmc_id."""
+        self.db.execute(
+            sa_update(PMCArticle)
+            .where(PMCArticle.epmc_id == epmc_id)
+            .values(**fields)
+        )
+        self.db.flush()
+
+    def get_record_by_id(self, record_id: int) -> Optional[Record]:
+        """Return a records row by primary key."""
+        return self.db.get(Record, record_id)
+
+    def insert_record(self, record: Record) -> int:
+        """Insert a new record row. Returns the new primary key."""
+        self.db.add(record)
+        self.db.flush()
+        return record.id
