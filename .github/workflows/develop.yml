@@ -1,34 +1,29 @@
-# this workflow is triggered when a PR to the develop branch is merged.
-# the following steps are performed:
-#   - build docker image and push to ECR (image tag is the git describe output as well as 'latest')
-#   - deploy image to staging environment
 name: develop branch workflow
+
 on:
   push:
     branches:
       - main
       - develop
-      - ci-github-actions # temporary branch for testing, to be removed once workflow is verified
+      - dc-deployment-pipeline
 permissions:
   id-token: write
+
 jobs:
   build-push:
     runs-on: ubuntu-latest
     steps:
       - name: checkout code
-        id: checkout-code
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
       - name: save command output
-        id: save-command-output
         run: |
-          echo "DOCKER_REPO=analytics-dashboard" >> $GITHUB_ENV
+          echo "DOCKER_REPO=analytics-dashboard-api" >> $GITHUB_ENV
           echo "DOCKER_TAG=$(git describe --tags)" >> $GITHUB_ENV
 
       - name: configure aws credentials
-        id: configure-aws-credentials
         uses: aws-actions/configure-aws-credentials@v6.1.0
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
@@ -40,26 +35,26 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
       - name: build app docker image
-        id: build-app-docker-image
-        run: docker buildx build --platform linux/arm64 --load -t ${{ env.DOCKER_REPO }}:${{ env.DOCKER_TAG }} -t ${{ env.DOCKER_REPO }}:latest -t ${{ env.DOCKER_REPO }}:develop .
+        run: |
+          docker buildx build \
+            --platform linux/arm64 \
+            --push \
+            -t ${{ steps.login-ecr.outputs.registry }}/${{ env.DOCKER_REPO }}:${{ env.DOCKER_TAG }} \
+            -t ${{ steps.login-ecr.outputs.registry }}/${{ env.DOCKER_REPO }}:latest \
+            -t ${{ steps.login-ecr.outputs.registry }}/${{ env.DOCKER_REPO }}:develop \
+            .
 
-      - name: push app image to ecr
-        id: push-app-image-to-ecr
-        uses: jwalton/gh-ecr-push@v2
-        with:
-          region: ${{ secrets.AWS_REGION }}
-          local-image: ${{ env.DOCKER_REPO }}:${{ env.DOCKER_TAG }}
-          image: ${{ env.DOCKER_REPO }}:${{ env.DOCKER_TAG }}, ${{ env.DOCKER_REPO }}:latest, ${{ env.DOCKER_REPO }}:develop
-
-      - name: build predeploy docker image
-        id: build-predeploy-docker-image
-        run: docker buildx build --platform linux/arm64 --load -t ${{ env.DOCKER_REPO }}-liquibase:${{ env.DOCKER_TAG }} -t ${{ env.DOCKER_REPO }}-liquibase:latest -t ${{ env.DOCKER_REPO }}-liquibase:develop liquibase
-
-      - name: push predeploy image to ecr
-        id: push-predeploy-image-to-ecr
-        uses: jwalton/gh-ecr-push@v2
-        with:
-          region: ${{ secrets.AWS_REGION }}
-          local-image: ${{ env.DOCKER_REPO }}-liquibase:${{ env.DOCKER_TAG }}
-          image: ${{ env.DOCKER_REPO }}-liquibase:${{ env.DOCKER_TAG }}, ${{ env.DOCKER_REPO }}-liquibase:latest, ${{ env.DOCKER_REPO }}-liquibase:develop
+      - name: build liquibase docker image
+        run: |
+          docker buildx build \
+            --platform linux/arm64 \
+            --push \
+            -t ${{ steps.login-ecr.outputs.registry }}/${{ env.DOCKER_REPO }}-liquibase:${{ env.DOCKER_TAG }} \
+            -t ${{ steps.login-ecr.outputs.registry }}/${{ env.DOCKER_REPO }}-liquibase:latest \
+            -t ${{ steps.login-ecr.outputs.registry }}/${{ env.DOCKER_REPO }}-liquibase:develop \
+            liquibase

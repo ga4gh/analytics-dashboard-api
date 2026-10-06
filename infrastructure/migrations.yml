@@ -1,0 +1,67 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Registers the Liquibase migration task definition. Deploy this stack, then run the task via aws ecs run-task before deploying the backend stack.
+
+Parameters:
+  StaticStackName:
+    Type: String
+    Default: analytics-dashboard
+  Environment:
+    Type: String
+    AllowedValues:
+      - staging
+      - production
+  LiquibaseImage:
+    Type: String
+  LiquibaseJdbcUrl:
+    Type: String
+  LiquibaseDbUsername:
+    Type: String
+  DBSecretArn:
+    Type: String
+    Description: ARN of the Secrets Manager secret containing the DB password
+  ExecutionRole:
+    Type: String
+  Region:
+    Type: String
+
+Resources:
+  LiquibaseTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub "${StaticStackName}-${Environment}-liquibase"
+      Cpu: 512
+      Memory: 1024
+      NetworkMode: awsvpc
+      ExecutionRoleArn: !Ref ExecutionRole
+      RequiresCompatibilities:
+        - FARGATE
+      RuntimePlatform:
+        CpuArchitecture: ARM64
+        OperatingSystemFamily: LINUX
+      ContainerDefinitions:
+        - Name: liquibase
+          Image: !Ref LiquibaseImage
+          Essential: true
+          Environment:
+            - Name: LIQUIBASE_COMMAND_URL
+              Value: !Ref LiquibaseJdbcUrl
+            - Name: LIQUIBASE_COMMAND_USERNAME
+              Value: !Ref LiquibaseDbUsername
+          Secrets:
+            - Name: LIQUIBASE_COMMAND_PASSWORD
+              ValueFrom: !Ref DBSecretArn
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group:
+                Fn::ImportValue: !Sub "${StaticStackName}-${Environment}-backend-logs"
+              awslogs-region: !Ref Region
+              awslogs-stream-prefix: !Sub "liquibase-${Environment}"
+
+Outputs:
+  TaskDefinitionArn:
+    Description: ARN of the registered Liquibase task definition
+    Value: !Ref LiquibaseTaskDefinition
+  TaskFamily:
+    Description: Family name - use this in aws ecs run-task --task-definition
+    Value: !Sub "${StaticStackName}-${Environment}-liquibase"

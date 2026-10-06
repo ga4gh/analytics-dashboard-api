@@ -1,0 +1,51 @@
+{
+  "base_infra": [
+    { "ParameterKey": "StaticStackName",       "ParameterValue": "analytics-dashboard" },
+    { "ParameterKey": "Environment",           "ParameterValue": "production" },
+    { "ParameterKey": "VpcId",                 "ParameterValue": "REPLACE_WITH_PRODUCTION_VPC_ID" },
+    { "ParameterKey": "VpcCidr",               "ParameterValue": "REPLACE_WITH_PRODUCTION_VPC_CIDR" },
+    { "ParameterKey": "SubnetA",               "ParameterValue": "REPLACE_WITH_PRODUCTION_SUBNET_A" },
+    { "ParameterKey": "SubnetB",               "ParameterValue": "REPLACE_WITH_PRODUCTION_SUBNET_B" },
+    { "ParameterKey": "SubnetC",               "ParameterValue": "REPLACE_WITH_PRODUCTION_SUBNET_C" },
+    { "ParameterKey": "ParamDBName",           "ParameterValue": "analytics_dashboard" },
+    { "ParameterKey": "ParamUsername",         "ParameterValue": "analytics_dashboard_writer" },
+    { "ParameterKey": "PubliclyAccessible",    "ParameterValue": "false" },
+    { "ParameterKey": "BackupRetentionPeriod", "ParameterValue": "30" }
+  ],
+  "migrations": [
+    { "ParameterKey": "StaticStackName",      "ParameterValue": "analytics-dashboard" },
+    { "ParameterKey": "Environment",          "ParameterValue": "production" },
+    { "ParameterKey": "LiquibaseImage",       "ParameterValue": "282236276875.dkr.ecr.us-east-2.amazonaws.com/analytics-dashboard-liquibase:latest" },
+    { "ParameterKey": "LiquibaseJdbcUrl",     "ParameterValue": "jdbc:postgresql://REPLACE_WITH_DB_HOST:5432/analytics_dashboard" },
+    { "ParameterKey": "LiquibaseDbUsername",  "ParameterValue": "analytics_dashboard_writer" },
+    { "ParameterKey": "DBSecretArn",          "ParameterValue": "REPLACE_WITH_SECRET_ARN" },
+    { "ParameterKey": "ExecutionRole",        "ParameterValue": "arn:aws:iam::282236276875:role/ECSFargateExecutionRole-TT" },
+    { "ParameterKey": "Region",               "ParameterValue": "us-east-2" }
+  ],
+  "backend": [
+    { "ParameterKey": "StaticStackName",      "ParameterValue": "analytics-dashboard" },
+    { "ParameterKey": "Environment",          "ParameterValue": "production" },
+    { "ParameterKey": "ApiImage",             "ParameterValue": "282236276875.dkr.ecr.us-east-2.amazonaws.com/analytics-dashboard:latest" },
+    { "ParameterKey": "VpcId",               "ParameterValue": "REPLACE_WITH_PRODUCTION_VPC_ID" },
+    { "ParameterKey": "SubnetA",             "ParameterValue": "REPLACE_WITH_PRODUCTION_SUBNET_A" },
+    { "ParameterKey": "SubnetB",             "ParameterValue": "REPLACE_WITH_PRODUCTION_SUBNET_B" },
+    { "ParameterKey": "SubnetC",             "ParameterValue": "REPLACE_WITH_PRODUCTION_SUBNET_C" },
+    { "ParameterKey": "ExecutionRole",       "ParameterValue": "arn:aws:iam::282236276875:role/ECSFargateExecutionRole-TT" },
+    { "ParameterKey": "Region",              "ParameterValue": "us-east-2" },
+    { "ParameterKey": "DBURL",               "ParameterValue": "postgresql://analytics_dashboard_writer:REPLACE_WITH_PASSWORD@REPLACE_WITH_DB_HOST:5432/analytics_dashboard" }
+  ],
+  "frontend": [
+    { "ParameterKey": "StaticStackName",  "ParameterValue": "analytics-dashboard" },
+    { "ParameterKey": "Environment",      "ParameterValue": "production" },
+    { "ParameterKey": "FrontEndImage",    "ParameterValue": "282236276875.dkr.ecr.us-east-2.amazonaws.com/analytics-dashboard-ui:latest" },
+    { "ParameterKey": "ApiBaseUrl",       "ParameterValue": "REPLACE_WITH_BACKEND_ALB_DNS" },
+    { "ParameterKey": "VpcId",            "ParameterValue": "REPLACE_WITH_PRODUCTION_VPC_ID" },
+    { "ParameterKey": "SubnetA",          "ParameterValue": "REPLACE_WITH_PRODUCTION_SUBNET_A" },
+    { "ParameterKey": "SubnetB",          "ParameterValue": "REPLACE_WITH_PRODUCTION_SUBNET_B" },
+    { "ParameterKey": "SubnetC",          "ParameterValue": "REPLACE_WITH_PRODUCTION_SUBNET_C" },
+    { "ParameterKey": "ExecutionRole",    "ParameterValue": "arn:aws:iam::282236276875:role/ECSFargateExecutionRole-TT" },
+    { "ParameterKey": "Region",           "ParameterValue": "us-east-2" },
+    { "ParameterKey": "ClusterName",      "ParameterValue": "analytics-dashboard-production-ui-cluster" },
+    { "ParameterKey": "CertificateArn",   "ParameterValue": "REPLACE_WITH_PRODUCTION_CERTIFICATE_ARN" }
+  ]
+}

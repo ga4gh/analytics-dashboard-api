@@ -1,0 +1,202 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Template for Analytics Dashboard UI deployment on AWS ECS Fargate with NLB
+
+Parameters:
+  StaticStackName:
+    Type: String
+    Default: analytics-dashboard
+  Environment:
+    Type: String
+    Default: staging
+    AllowedValues:
+      - staging
+      - production
+  UIPort:
+    Type: String
+    Default: 8050
+  FrontEndImage:
+    Type: String
+  ApiBaseUrl:
+    Type: String
+  VpcId:
+    Type: String
+  SubnetA:
+    Type: String
+  SubnetB:
+    Type: String
+  SubnetC:
+    Type: String
+  Region:
+    Type: String
+  Prefix:
+    Type: String
+    Default: ecs
+  ExecutionRole:
+    Type: String
+  ClusterName:
+    Type: String
+  CertificateArn:
+    Type: String
+  ShortName:
+    Type: String
+    Default: an-db
+
+Resources:
+  ALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow inbound HTTP/HTTPS to ALB
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+
+  ALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub "${ShortName}-${Environment}-fe-alb"
+      Type: application
+      Scheme: internet-facing
+      IpAddressType: ipv4
+      SecurityGroups:
+        - !Ref ALBSecurityGroup
+      Subnets:
+        - Ref: SubnetA
+        - Ref: SubnetB
+        - Ref: SubnetC
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub "${ShortName}-${Environment}-fe-tg"
+      TargetType: ip
+      Protocol: HTTP
+      Port: !Ref UIPort
+      VpcId: !Ref VpcId
+      HealthCheckEnabled: true
+      HealthCheckProtocol: HTTP
+      HealthCheckPath: /health
+      HealthCheckPort: traffic-port
+      HealthCheckIntervalSeconds: 30
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 5
+      Matcher:
+        HttpCode: 200-399
+
+  ALBListenerHTTP:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    DependsOn:
+      - ALB
+    Properties:
+      LoadBalancerArn: !Ref ALB
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: redirect
+          RedirectConfig:
+            Protocol: HTTPS
+            Port: "443"
+            StatusCode: HTTP_301
+
+  ALBListenerHTTPS:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    DependsOn:
+      - TargetGroup
+      - ALB
+    Properties:
+      LoadBalancerArn: !Ref ALB
+      Port: 443
+      Protocol: HTTPS
+      Certificates:
+        - CertificateArn: !Ref CertificateArn
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Ref ClusterName
+
+  ECSTaskSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow ALB to reach ECS tasks on Dash port
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: !Ref UIPort
+          ToPort: !Ref UIPort
+          SourceSecurityGroupId: !Ref ALBSecurityGroup
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+
+  ECSFrontEndService:
+    Type: AWS::ECS::Service
+    DependsOn:
+      - ECSFrontEndTaskDefinition
+      - ALBListenerHTTPS
+      - TargetGroup
+    Properties:
+      Cluster: !Ref ECSCluster
+      LaunchType: FARGATE
+      DesiredCount: 1
+      HealthCheckGracePeriodSeconds: 120
+      ServiceName: !Sub "${StaticStackName}-${Environment}-fe-service"
+      TaskDefinition: !Ref ECSFrontEndTaskDefinition
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups:
+            - Fn::ImportValue: !Sub "${StaticStackName}-${Environment}-SGId"
+            - !Ref ECSTaskSecurityGroup
+          Subnets:
+            - !Ref SubnetA
+            - !Ref SubnetB
+            - !Ref SubnetC
+      LoadBalancers:
+        - TargetGroupArn: !Ref TargetGroup
+          ContainerName: !Sub "${StaticStackName}-${Environment}-fe-container"
+          ContainerPort: !Ref UIPort
+
+  ECSFrontEndTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Cpu: 1024
+      Memory: 4096
+      NetworkMode: awsvpc
+      ExecutionRoleArn: !Ref ExecutionRole
+      RequiresCompatibilities:
+        - FARGATE
+      RuntimePlatform:
+        CpuArchitecture: ARM64
+        OperatingSystemFamily: LINUX
+      ContainerDefinitions:
+        - Name: !Sub "${StaticStackName}-${Environment}-fe-container"
+          Image: !Ref FrontEndImage
+          Environment:
+            - Name: GA4GH_ANALYTICS_DASHBOARD_API_BASE_URL
+              Value: !Ref ApiBaseUrl
+            - Name: GA4GH_ANALYTICS_DASHBOARD_UI_PORT
+              Value: !Ref UIPort
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group:
+                Fn::ImportValue: !Sub "${StaticStackName}-${Environment}-frontend-logs"
+              awslogs-region: !Ref Region
+              awslogs-stream-prefix: !Ref Prefix
+          PortMappings:
+            - ContainerPort: !Ref UIPort
+
+Outputs:
+  ALBDNSName:
+    Description: DNS name of the ALB (use this in CNAME record)
+    Value: !GetAtt ALB.DNSName
