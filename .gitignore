@@ -20,3 +20,6 @@ infrastructure/parameters/staging.json
 infrastructure/parameters/production.json
 infrastructure/deploy.bat
 scripts/match_result.json
+
+# Generated review exports (not for version control)
+exports/

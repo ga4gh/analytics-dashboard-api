@@ -31,6 +31,8 @@
     { "ParameterKey": "SubnetB",             "ParameterValue": "subnet-0c465ec61b98bffac" },
     { "ParameterKey": "SubnetC",             "ParameterValue": "subnet-07b0e79f4d9bbf9d0" },
     { "ParameterKey": "ExecutionRole",       "ParameterValue": "arn:aws:iam::282236276875:role/ECSFargateExecutionRole-TT" },
+    { "ParameterKey": "TaskRole",            "ParameterValue": "arn:aws:iam::282236276875:role/ECSFargateTaskRoleTtDashboard" },
+    { "ParameterKey": "ExportS3Bucket",      "ParameterValue": "dashboard-review-queue" },
     { "ParameterKey": "Region",              "ParameterValue": "us-east-2" },
     { "ParameterKey": "DBURL",               "ParameterValue": "postgresql://analytics_dashboard_writer:REPLACE_WITH_PASSWORD@REPLACE_WITH_DB_HOST:5432/analytics_dashboard_staging" }
   ],
