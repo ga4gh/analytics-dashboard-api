@@ -12,7 +12,7 @@ import json
 
 from sqlalchemy.orm import Session, selectinload, raiseload
 from sqlalchemy.exc import OperationalError
-from sqlalchemy import func, and_, or_, select
+from sqlalchemy import func, and_, or_, select, update as sa_update
 from sqlalchemy.sql import literal_column
 from src.config.constants import COUNTRIES, ALIASES
 
@@ -23,6 +23,9 @@ from src.models.entities.citations import Citation, Reference
 from sqlalchemy import func
 from src.models.entities.record import Record
 from src.models.entities.ingestion import Ingestion
+from src.models.entities.audit_log import AuditLog
+from src.models.entities.pmc_review import PMCReview
+from src.models.entities.known_divergence import KnownDivergence
 class EPMCRepo:
     def __init__(self, db: Session):
         
@@ -265,17 +268,13 @@ class EPMCRepo:
             .subquery()
         )
         
+        # No relationship loading — the /epmc/all-articles endpoint serialises into
+        # PMCArticleCustom which contains scalar fields only. Loading relationships
+        # here added two extra queries per page (article_authors + affiliations)
+        # for data that was immediately discarded, causing timeouts on large datasets.
         return (
             self.db.query(PMCArticle)
             .join(version_subq, and_(PMCArticle.id == version_subq.c.id, version_subq.c.rn == 1))
-            .options(
-                selectinload(PMCArticle.article_authors),
-                selectinload(PMCArticle.affiliations),
-                #selectinload(PMCArticle.fulltexts),
-                #selectinload(PMCArticle.citations),
-                #selectinload(PMCArticle.references),
-
-            )
             .offset(skip)
             .limit(limit)
             .all()
@@ -291,6 +290,25 @@ class EPMCRepo:
 
     def get_all_grants(self, limit: int = 100, skip: int = 0) -> list[Grant]:
         return self.db.query(Grant).offset(skip).limit(limit).all()
+
+    def get_funding_agencies(self, limit: int = 50) -> list[dict]:
+        rows = (
+            self.db.query(Grant.agency, func.count(Grant.id).label("count"))
+            .filter(Grant.agency.isnot(None))
+            .group_by(Grant.agency)
+            .order_by(func.count(Grant.id).desc())
+            .limit(limit)
+            .all()
+        )
+        return [{"agency": agency, "count": int(count)} for agency, count in rows]
+
+    def get_unique_funding_agencies_count(self) -> int:
+        count = (
+            self.db.query(func.count(func.distinct(Grant.agency)))
+            .filter(Grant.agency.isnot(None))
+            .scalar()
+        )
+        return int(count) if count else 0
 
     def get_all_pmc_authors(self, limit: int = 100, skip: int = 0) -> list[PMCAuthor]:
         return self.db.query(PMCAuthor).offset(skip).limit(limit).all()
@@ -747,6 +765,148 @@ class EPMCRepo:
         except Exception:
             logger.warning("Could not parse max ingestion version: %r", max_ver)
             return 0
+
+    def get_last_ingestion_date(self) -> Optional[datetime]:
+        """Return the most recent ingested_at timestamp of a SUCCESSFUL run.
+
+        A run is considered successful when total_pulled is not NULL — that value
+        is written by update_ingestion_counts() only after classification completes.
+        Failed runs leave total_pulled as NULL and are excluded so their committed
+        ingestion row does not corrupt the next delta window.
+        """
+        return (
+            self.db.query(func.max(Ingestion.ingested_at))
+            .filter(Ingestion.total_pulled.isnot(None))
+            .scalar()
+        )
+
+    def update_ingestion_counts(self, ingestion_id: int, counts: dict) -> None:
+        self.db.execute(
+            sa_update(Ingestion).where(Ingestion.id == ingestion_id).values(**counts)
+        )
+        self.db.flush()
+
+    # ------------------------------------------------------------------
+    # Curation — audit log
+    # ------------------------------------------------------------------
+
+    def insert_audit_log(self, audit_log: AuditLog) -> int:
+        self.db.add(audit_log)
+        self.db.flush()
+        return audit_log.id
+
+    # ------------------------------------------------------------------
+    # Curation — review
+    # ------------------------------------------------------------------
+
+    def insert_review(self, review: PMCReview) -> int:
+        self.db.add(review)
+        self.db.flush()
+        return review.id
+
+    def get_pending_review_by_epmc_id(self, epmc_id: str) -> Optional[PMCReview]:
+        """Return the active pending pmc_review row for an article, if one exists."""
+        return (
+            self.db.execute(
+                select(PMCReview)
+                .where(PMCReview.epmc_id == epmc_id)
+                .where(PMCReview.review_status == "pending")
+                .order_by(PMCReview.id.desc())
+                .limit(1)
+            ).scalar_one_or_none()
+        )
+
+    def get_review_by_id(self, review_id: int) -> Optional[PMCReview]:
+        """Return a pmc_review row by primary key, or None if not found."""
+        return (
+            self.db.execute(
+                select(PMCReview).where(PMCReview.id == review_id)
+            ).scalar_one_or_none()
+        )
+
+    def update_review(self, review_id: int, updates: dict) -> None:
+        """Overwrite fields on an existing pmc_review row (used to refresh stale pending rows)."""
+        self.db.execute(
+            sa_update(PMCReview).where(PMCReview.id == review_id).values(**updates)
+        )
+        self.db.flush()
+
+    # ------------------------------------------------------------------
+    # Curation — article lookups (used by AutoClassifyService)
+    # ------------------------------------------------------------------
+
+    def get_staged_articles(self, ingestion_id: int) -> List[PMCArticle]:
+        """Return all pmc_articles rows written in a given ingestion run."""
+        return (
+            self.db.execute(select(PMCArticle).where(PMCArticle.ingestion_id == ingestion_id))
+            .scalars()
+            .all()
+        )
+
+    def get_article_by_epmc_id(self, epmc_id: str) -> Optional[PMCArticle]:
+        # Use first() — production DB may have duplicate epmc_id rows from pre-curation
+        # data. Take the row with the highest id (most recently approved version).
+        return (
+            self.db.execute(
+                select(PMCArticle)
+                .where(PMCArticle.epmc_id == epmc_id)
+                .order_by(PMCArticle.id.desc())
+                .limit(1)
+            ).scalar_one_or_none()
+        )
+
+    def get_article_by_doi(self, doi: str) -> Optional[PMCArticle]:
+        # Same defensive approach for doi lookups.
+        return (
+            self.db.execute(
+                select(PMCArticle)
+                .where(PMCArticle.doi == doi)
+                .order_by(PMCArticle.id.desc())
+                .limit(1)
+            ).scalar_one_or_none()
+        )
+
+    def get_reviews_for_export(self, ingestion_id: Optional[int] = None) -> List[tuple]:
+        """
+        Return (PMCReview, PMCArticle, Ingestion) tuples for pending reviews.
+        If ingestion_id is None, uses the most recent ingestion that has pending rows.
+        """
+        if ingestion_id is None:
+            subq = (
+                select(PMCReview.ingestion_id)
+                .where(PMCReview.review_status == "pending")
+                .order_by(PMCReview.ingestion_id.desc())
+                .limit(1)
+                .scalar_subquery()
+            )
+            ingestion_id = self.db.execute(select(subq)).scalar_one_or_none()
+            if ingestion_id is None:
+                return []
+
+        rows = (
+            self.db.execute(
+                select(PMCReview, PMCArticle, Ingestion)
+                .outerjoin(PMCArticle, PMCReview.staging_id == PMCArticle.id)
+                .join(Ingestion, PMCReview.ingestion_id == Ingestion.id)
+                .where(PMCReview.ingestion_id == ingestion_id)
+                .where(PMCReview.review_status == "pending")
+                .order_by(PMCReview.review_type, PMCReview.id)
+            ).all()
+        )
+        return rows
+
+    def get_active_known_divergences(
+        self, epmc_id: Optional[str], doi: Optional[str]
+    ) -> List[KnownDivergence]:
+        """Return active known_divergence rows for a given article identity."""
+        if not epmc_id and not doi:
+            return []
+        query = select(KnownDivergence).where(KnownDivergence.active.is_(True))
+        if epmc_id:
+            query = query.where(KnownDivergence.epmc_id == epmc_id)
+        else:
+            query = query.where(KnownDivergence.doi == doi)
+        return self.db.execute(query).scalars().all()
         
     def get_all_latest_entries(self, pm_id: Optional[str] = None, limit: int = 100, skip: int = 0) -> dict[str, list[Any]]:
         """
@@ -1078,23 +1238,106 @@ class EPMCRepo:
         return int(total) if total else 0
 
     def count_unique_authors(self) -> int:
-        return self.db.query(
-            func.count(
-                func.distinct(
-                    func.concat(
-                        func.lower(func.trim(PMCAuthor.firstname)),
-                        " ",
-                        func.lower(func.trim(PMCAuthor.lastname)),
-                        " ",
-                        func.lower(func.trim(PMCAuthor.initials))
-                    )
-                )
+        """
+        Count distinct authors linked to the deduplicated article set.
+        Mirrors the same row_number() dedup used by get_all_articles() so the
+        number is consistent with the 1-row-per-pm_id article count.
+        """
+        version_subq = (
+            self.db.query(
+                PMCArticle.id,
+                func.row_number().over(
+                    partition_by=PMCArticle.pm_id,
+                    order_by=Ingestion.version.desc().nullslast(),
+                ).label("rn"),
             )
-        ).filter(
-            PMCAuthor.firstname.isnot(None),
-            PMCAuthor.lastname.isnot(None),
-            PMCAuthor.initials.isnot(None)
-        ).scalar()
+            .outerjoin(Ingestion, PMCArticle.ingestion_id == Ingestion.id)
+            .subquery()
+        )
+
+        deduped_ids_subq = (
+            self.db.query(PMCArticle.id)
+            .join(version_subq, and_(PMCArticle.id == version_subq.c.id, version_subq.c.rn == 1))
+            .subquery()
+        )
+
+        count = (
+            self.db.query(func.count(func.distinct(ArticleAuthor.author_id)))
+            .filter(ArticleAuthor.article_id.in_(self.db.query(deduped_ids_subq.c.id)))
+            .scalar()
+        )
+        return int(count) if count else 0
         
     def count_articles(self) -> int:
-        return 0;
+        count = self.db.query(func.count(func.distinct(PMCArticle.pm_id))).scalar()
+        return int(count) if count else 0
+
+    def get_articles_for_dashboard(self) -> list[dict]:
+        from sqlalchemy import text
+        sql = """
+            SELECT DISTINCT ON (a.pm_id)
+                a.pm_id,
+                a.title,
+                a.doi,
+                a.pub_year,
+                a.cited_by_count,
+                a.is_open_access,
+                a.abstract_text,
+                a.language,
+                a.affiliation
+            FROM pmc_articles a
+            LEFT JOIN ingestion i ON a.ingestion_id = i.id
+            WHERE a.pm_id IS NOT NULL
+            ORDER BY a.pm_id, i.version DESC NULLS LAST
+        """
+        rows = self.db.execute(text(sql))
+        return [
+            {
+                "pm_id":          r.pm_id or "",
+                "title":          r.title or "",
+                "doi":            r.doi or "",
+                "pub_year":       r.pub_year,
+                "cited_by_count": r.cited_by_count or 0,
+                "is_open_access": str(r.is_open_access).lower() in ("y", "yes", "true", "1"),
+                "abstract_text":  r.abstract_text or "",
+                "language":       r.language or "",
+                "affiliation":    r.affiliation or "",
+            }
+            for r in rows
+        ]
+
+    def get_publication_types(self) -> list[dict]:
+        from sqlalchemy import text
+        sql = """
+            WITH ranked AS (
+                SELECT a.id,
+                       row_number() OVER (
+                           PARTITION BY a.pm_id
+                           ORDER BY i.version DESC NULLS LAST
+                       ) AS rn
+                FROM pmc_articles a
+                LEFT JOIN ingestion i ON a.ingestion_id = i.id
+                WHERE a.pm_id IS NOT NULL
+            ),
+            deduped AS (
+                SELECT r.id FROM ranked r WHERE r.rn = 1
+            )
+            SELECT
+                CASE
+                    WHEN a.pub_type::text ILIKE '%Preprint%'        THEN 'Preprint'
+                    WHEN a.pub_type::text ILIKE '%Review%'          THEN 'Review'
+                    WHEN a.pub_type::text ILIKE '%Comment%'
+                      OR a.pub_type::text ILIKE '%Letter%'
+                      OR a.pub_type::text ILIKE '%Editorial%'       THEN 'Comment / Letter'
+                    WHEN a.pub_type::text ILIKE '%Journal Article%' THEN 'Journal Article'
+                    ELSE 'Other'
+                END AS primary_type,
+                COUNT(*) AS count
+            FROM pmc_articles a
+            JOIN deduped d ON a.id = d.id
+            WHERE a.pub_type IS NOT NULL
+            GROUP BY primary_type
+            ORDER BY count DESC
+        """
+        result = self.db.execute(text(sql))
+        return [{"type": row.primary_type, "count": int(row.count)} for row in result]
