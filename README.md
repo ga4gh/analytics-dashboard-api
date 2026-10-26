@@ -43,6 +43,7 @@ Sources (will expand):
 ### 📄 Key Documents
 
 - [Plenary 2026 Milestones](doc/14_plenary_milestones.md): Features planned for GA4GH Plenary 2026 (Sept 28 – Oct 2)
+- [Provenance Pipeline Guide](doc/provenance-pipeline.md): Step-by-step API guide for running the full EPMC provenance workflow
 - [Data Provenance Design](doc/epmc-data-provenance-plan.md): Architecture and curation plan for EuropePMC data provenance
 - [Provenance Table Schema](doc/provenance-tables.md): Database schema for all provenance, review queue, and audit log tables
 - [ER Diagram](doc/er-diagram.md): Entity-relationship diagram for the analytics database
