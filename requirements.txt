@@ -1,9 +1,9 @@
 
-fastapi==0.136.1
+fastapi==0.143.2
 uvicorn==0.38.0
 
 # Database
-sqlalchemy==2.0.51
+sqlalchemy==2.1.4
 alembic==1.18.5
 psycopg==3.3.4
 psycopg-binary==3.3.4
@@ -27,8 +27,8 @@ pytest-cov==7.1.0
 
 # Data / viz
 xmltodict==1.0.4
-matplotlib==3.10.8
 pandas==3.0.6
+matplotlib==3.11.2
 seaborn==0.13.2
 dash==4.4.1
 plotly==6.6.0
