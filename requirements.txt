@@ -27,7 +27,7 @@ pytest-cov==7.1.0
 
 # Data / viz
 xmltodict==1.0.4
-matplotlib==3.10.8
+matplotlib==3.11.2
 pandas==2.3.3
 seaborn==0.13.2
 dash==4.4.1
