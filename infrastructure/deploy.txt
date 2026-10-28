@@ -146,7 +146,7 @@ aws cloudformation deploy \
     StaticStackName=analytics-dashboard \
     Environment=staging \
     FrontEndImage=282236276875.dkr.ecr.us-east-2.amazonaws.com/analytics-dashboard-ui:latest \
-    ApiBaseUrl=https://api.dashboard.ga4gh.org \     
+    ApiBaseUrl=https://api.dashboard.ga4gh.org \
     VpcId=vpc-01c8c42ad7cf34b4b \
     SubnetA=subnet-0f26c31e6c9578717 \
     SubnetB=subnet-00663ce89eb47404f \

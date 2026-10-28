@@ -14,6 +14,7 @@ from src.services.auto_classify import AutoClassifyService
 from src.services.export import build_csv, build_excel
 from src.services.storage import upload_to_s3
 from src.services.import_review import parse_review_file, apply_review_decisions
+from src.services.promotion import PromotionService
 from src.config.session import get_session, get_staging_db
 
 
@@ -482,5 +483,45 @@ class EPMC:
                 "processed": result.processed,
                 "skipped_already_reviewed": result.skipped,
                 "not_found": result.not_found,
+                "errors": result.errors,
+            }
+
+        @self.router.post("/epmc/review/promote")
+        async def promote_approved_reviews(
+            promoted_by: str = Query(..., description="Name or email of the person triggering promotion"),
+            ingestion_id: Optional[int] = Query(None, description="Ingestion ID to promote. Defaults to latest with approved reviews."),
+            staging_repo: EPMCRepo = Depends(get_staging_epmc_repo),
+            production_repo: EPMCRepo = Depends(get_epmc_repo),
+        ):
+            """
+            Promote all approved staged records to the production database.
+            NEW approved  → inserts article into production.
+            CHANGED approved → applies diff fields to existing production article.
+            Writes audit log entries to both staging and production DBs.
+            """
+            if ingestion_id is None:
+                from sqlalchemy import select as sa_select
+                from src.models.entities.pmc_review import PMCReview as PMCReviewModel
+                ingestion_id = staging_repo.db.execute(
+                    sa_select(PMCReviewModel.ingestion_id)
+                    .where(PMCReviewModel.review_status == "approved")
+                    .order_by(PMCReviewModel.ingestion_id.desc())
+                    .limit(1)
+                ).scalar_one_or_none()
+
+                if ingestion_id is None:
+                    raise HTTPException(status_code=404, detail="No approved reviews found to promote.")
+
+            service = PromotionService(staging_repo=staging_repo, production_repo=production_repo)
+            result = service.promote(ingestion_id=ingestion_id, promoted_by=promoted_by)
+
+            return {
+                "status": "success",
+                "message": f"Promotion complete for ingestion_id: {ingestion_id}",
+                "ingestion_id": ingestion_id,
+                "promoted_by": promoted_by,
+                "promoted_new": result.promoted_new,
+                "promoted_changed": result.promoted_changed,
+                "skipped": result.skipped,
                 "errors": result.errors,
             }

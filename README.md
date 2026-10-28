@@ -43,6 +43,7 @@ Sources (will expand):
 ### 📄 Key Documents
 
 - [Plenary 2026 Milestones](doc/14_plenary_milestones.md): Features planned for GA4GH Plenary 2026 (Sept 28 – Oct 2)
+- [Provenance Pipeline Guide](doc/provenance-pipeline.md): Step-by-step API guide for running the full EPMC provenance workflow. Created with Claude Code and reviewed manually.
 - [Data Provenance Design](doc/epmc-data-provenance-plan.md): Architecture and curation plan for EuropePMC data provenance
 - [Provenance Table Schema](doc/provenance-tables.md): Database schema for all provenance, review queue, and audit log tables
 - [ER Diagram](doc/er-diagram.md): Entity-relationship diagram for the analytics database
@@ -117,5 +118,8 @@ If you'd like to get in touch with the primary maintainers - GA4GH tech team - y
 - **Email**: Send us your inquiries or support requests at [ga4gh-tech-team@ga4gh.org](mailto:ga4gh-tech-team@ga4gh.org).
 
 We look forward to assisting you and ensuring your experience with our product is successful and enjoyable!
+
+## AI Disclosure
+Artificial intelligence tools, including large language models (LLMs), were used in the development of this project to support clarifying technical concepts and generating code snippets. These tools served as an aid for idea refinement, debugging, and testing of the program. All AI-generated code was thoroughly reviewed, verified for correctness, and fully understood before being incorporated into this work. Responsibility for all final decisions, interpretations, and implementations remains solely with the contributors.
 
 [Back to top](#top)
