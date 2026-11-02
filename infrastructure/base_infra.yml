@@ -110,7 +110,9 @@ Resources:
       DeleteAutomatedBackups: false
       PubliclyAccessible: !Ref PubliclyAccessible
       MasterUsername: !Ref ParamUsername
-      MasterUserPassword: !Sub '{{resolve:secretsmanager:${StaticStackName}-${Environment}-DBPassword:SecretString}}'
+      MasterUserPassword: !Sub
+        - '{{resolve:secretsmanager:${SecretName}:SecretString}}'
+        - SecretName: !Ref DBPassword
       VPCSecurityGroups:
         - !GetAtt WebServerSecurityGroup.GroupId
 

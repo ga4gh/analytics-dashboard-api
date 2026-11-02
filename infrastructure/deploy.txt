@@ -171,3 +171,232 @@ aws ecs update-service \
   --service analytics-dashboard-staging-fe-service \
   --force-new-deployment \
   --region us-east-2
+
+
+
+Production Steps
+Production
+
+=== Prerequisites: look up these values once ===
+
+# RDS endpoint
+aws rds describe-db-instances \
+  --region us-east-2 \
+  --query "DBInstances[?contains(DBInstanceIdentifier, 'production')].Endpoint.Address" \
+  --output text
+
+# Security group ID
+aws cloudformation describe-stacks \
+  --stack-name analytics-dashboard-production-base \
+  --region us-east-2 \
+  --query "Stacks[0].Outputs[?OutputKey=='WebServerSGId'].OutputValue" \
+  --output text
+
+# Secret ARN (includes random suffix)
+aws secretsmanager describe-secret \
+  --secret-id analytics-dashboard-production-DBPassword \
+  --region us-east-2 \
+  --query 'ARN' --output text
+
+
+=== Step 1: Base Infrastructure (ALREADY DONE) ===
+
+aws cloudformation deploy \
+  --template-file infrastructure/base_infra.yml \
+  --stack-name analytics-dashboard-production-base \
+  --region us-east-2 \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --parameter-overrides \
+    StaticStackName=analytics-dashboard \
+    Environment=production \
+    VpcId=vpc-01c8c42ad7cf34b4b \
+    VpcCidr=10.0.0.0/16 \
+    SubnetA=subnet-0f26c31e6c9578717 \
+    SubnetB=subnet-00663ce89eb47404f \
+    SubnetC=subnet-08b697026fc4502e5 \
+    ParamDBName=<prod-dbname> \
+    ParamUsername=<prod-username> \
+    PubliclyAccessible=true \
+    BackupRetentionPeriod=7
+
+
+=== Step 2: Migrations ===
+
+# 2a. Rebuild Liquibase image (always do this to pick up latest dbchangelog.xml)
+cd /Users/dashrath/Documents/GA4GH/Analytics/analytics-dashboard/liquibase
+
+aws ecr get-login-password --region us-east-2 | \
+  docker login --username AWS --password-stdin 282236276875.dkr.ecr.us-east-2.amazonaws.com
+
+docker build -t analytics-dashboard-liquibase .
+docker tag analytics-dashboard-liquibase:latest \
+  282236276875.dkr.ecr.us-east-2.amazonaws.com/analytics-dashboard-liquibase:latest
+docker push \
+  282236276875.dkr.ecr.us-east-2.amazonaws.com/analytics-dashboard-liquibase:latest
+
+# 2b. Deploy migrations stack
+cd /Users/dashrath/Documents/GA4GH/Analytics/analytics-dashboard
+
+aws cloudformation deploy \
+  --template-file infrastructure/migrations.yml \
+  --stack-name analytics-dashboard-production-migrations \
+  --region us-east-2 \
+  --parameter-overrides \
+    StaticStackName=analytics-dashboard \
+    Environment=production \
+    LiquibaseImage=282236276875.dkr.ecr.us-east-2.amazonaws.com/analytics-dashboard-liquibase:latest \
+    LiquibaseJdbcUrl=jdbc:postgresql://<prod-rds-endpoint>:5432/<prod-dbname> \
+    LiquibaseDbUsername=<prod-username> \
+    DBSecretArn=<prod-secret-arn> \
+    ExecutionRole=arn:aws:iam::282236276875:role/ECSFargateExecutionRole-TT \
+    Region=us-east-2
+
+# 2c. Run migration task
+aws ecs run-task \
+  --cluster analytics-dashboard-production-cluster \
+  --task-definition analytics-dashboard-production-liquibase \
+  --launch-type FARGATE \
+  --network-configuration "awsvpcConfiguration={subnets=[subnet-0f26c31e6c9578717,subnet-00663ce89eb47404f,subnet-08b697026fc4502e5],securityGroups=[<prod-sg-id>],assignPublicIp=ENABLED}" \
+  --region us-east-2
+
+# 2d. Check task status (replace <TASK_ARN> from run-task output)
+aws ecs describe-tasks \
+  --cluster analytics-dashboard-production-cluster \
+  --tasks <TASK_ARN> \
+  --region us-east-2 \
+  --query "tasks[0].containers[0].{Status:lastStatus,ExitCode:exitCode,Reason:reason}"
+
+# 2e. Check logs
+aws logs tail /analytics-dashboard/production/backend --follow --region us-east-2
+
+# 2f. Verify all changesets ran (should end with dc-20260827-001)
+PGPASSWORD=$(aws secretsmanager get-secret-value \
+  --secret-id analytics-dashboard-production-DBPassword \
+  --version-stage AWSCURRENT --region us-east-2 \
+  --query 'SecretString' --output text) \
+PGSSLMODE=require PGGSSENCMODE=disable psql \
+  -h <prod-rds-endpoint> -p 5432 -U <prod-username> -d <prod-dbname> \
+  -c "SELECT id, author, dateexecuted FROM databasechangelog ORDER BY dateexecuted DESC LIMIT 10;"
+
+
+=== Step 3: Data Migration (from local production DB) ===
+
+# 3a. Dump local production data (custom format, data-only, excludes Liquibase tables)
+pg_dump \
+  --data-only \
+  --no-owner \
+  --no-privileges \
+  --exclude-table=databasechangelog \
+  --exclude-table=databasechangeloglock \
+  -Fc \
+  -h localhost -p 5432 \
+  -U <local-prod-username> \
+  -d <local-prod-dbname> \
+  -f /tmp/prod_data_dump.dump
+
+# 3b. Get production DB password
+PROD_DBPASS=$(aws secretsmanager get-secret-value \
+  --secret-id analytics-dashboard-production-DBPassword \
+  --version-stage AWSCURRENT --region us-east-2 \
+  --query 'SecretString' --output text)
+
+# 3c. Restore to production RDS
+PGPASSWORD=$PROD_DBPASS PGSSLMODE=require PGGSSENCMODE=disable pg_restore \
+  --data-only \
+  --no-owner \
+  --no-privileges \
+  --single-transaction \
+  -h <prod-rds-endpoint> -p 5432 \
+  -U <prod-username> \
+  -d <prod-dbname> \
+  /tmp/prod_data_dump.dump
+
+# 3d. Verify row counts
+PGPASSWORD=$PROD_DBPASS PGSSLMODE=require PGGSSENCMODE=disable psql \
+  -h <prod-rds-endpoint> -p 5432 -U <prod-username> -d <prod-dbname> \
+  -c "SELECT relname, n_live_tup FROM pg_stat_user_tables WHERE n_live_tup > 0 ORDER BY n_live_tup DESC;"
+
+
+=== Step 4: Deploy Backend ===
+
+cd /Users/dashrath/Documents/GA4GH/Analytics/analytics-dashboard
+
+PROD_DBPASS=$(aws secretsmanager get-secret-value \
+  --secret-id analytics-dashboard-production-DBPassword \
+  --version-stage AWSCURRENT --region us-east-2 \
+  --query 'SecretString' --output text)
+
+aws cloudformation deploy \
+  --template-file infrastructure/backend.yml \
+  --stack-name analytics-dashboard-production-backend \
+  --region us-east-2 \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --parameter-overrides \
+    StaticStackName=analytics-dashboard \
+    Environment=production \
+    VpcId=vpc-01c8c42ad7cf34b4b \
+    SubnetA=subnet-0f26c31e6c9578717 \
+    SubnetB=subnet-00663ce89eb47404f \
+    SubnetC=subnet-08b697026fc4502e5 \
+    HostPort=8000 \
+    ParamContainerPort=8000 \
+    ShortName=an-db \
+    Prefix=ecs \
+    Region=us-east-2 \
+    ExecutionRole=arn:aws:iam::282236276875:role/ECSFargateExecutionRole-TT \
+    TaskRole=<task-role-arn> \
+    ApiImage=282236276875.dkr.ecr.us-east-2.amazonaws.com/analytics-dashboard-api:latest \
+    ExportS3Bucket=<export-s3-bucket-name> \
+    DBURL="postgresql://<prod-username>:${PROD_DBPASS}@<prod-rds-endpoint>:5432/<prod-dbname>?sslmode=require" \
+    CertificateArn=arn:aws:acm:us-east-2:282236276875:certificate/72a8fde8-ce94-4da7-ba72-57aa225aa695
+
+
+=== Step 5: Deploy Frontend ===
+
+cd /Users/dashrath/Documents/GA4GH/Analytics/analytics-dashboard-ui/infrastructure
+
+aws cloudformation deploy \
+  --template-file frontend.yml \
+  --stack-name analytics-dashboard-production-frontend \
+  --region us-east-2 \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --parameter-overrides \
+    StaticStackName=analytics-dashboard \
+    Environment=production \
+    FrontEndImage=282236276875.dkr.ecr.us-east-2.amazonaws.com/analytics-dashboard-ui:latest \
+    ApiBaseUrl=https://api.dashboard.ga4gh.org \
+    VpcId=vpc-01c8c42ad7cf34b4b \
+    SubnetA=subnet-0f26c31e6c9578717 \
+    SubnetB=subnet-00663ce89eb47404f \
+    SubnetC=subnet-08b697026fc4502e5 \
+    ExecutionRole=arn:aws:iam::282236276875:role/ECSFargateExecutionRole-TT \
+    Region=us-east-2 \
+    ClusterName=analytics-dashboard-production-ui-cluster \
+    CertificateArn=arn:aws:acm:us-east-2:282236276875:certificate/72a8fde8-ce94-4da7-ba72-57aa225aa695
+
+
+=== Step 6: Update services (subsequent deploys only) ===
+
+# Backend
+aws ecs update-service \
+  --cluster analytics-dashboard-production-cluster \
+  --service analytics-dashboard-production-backend-service \
+  --force-new-deployment \
+  --region us-east-2
+
+# Frontend
+aws ecs update-service \
+  --cluster analytics-dashboard-production-ui-cluster \
+  --service analytics-dashboard-production-fe-service \
+  --force-new-deployment \
+  --region us-east-2
+
+
+=== Diagnostics ===
+
+# CloudFormation stack failures
+aws cloudformation describe-stack-events \
+  --stack-name <stack-name> \
+  --region us-east-2 \
+  --query "StackEvents[?contains(ResourceStatus, 'FAILED')].{Resource:LogicalResourceId,Status:ResourceStatus,Reason:ResourceStatusReason}" \
+  --output table
