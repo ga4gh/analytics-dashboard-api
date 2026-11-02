@@ -1,28 +1,28 @@
 
-fastapi==0.124.0
+fastapi==0.143.2
 uvicorn==0.38.0
 
 # Database
-sqlalchemy==2.0.48
-alembic==1.13.3
-psycopg==3.3.2
-psycopg-binary==3.3.3
-psycopg-pool==3.3.0
+sqlalchemy==2.1.4
+alembic==1.18.5
+psycopg==3.3.4
+psycopg-binary==3.3.4
+psycopg-pool==3.3.1
 
 # Validation / config
-pydantic==2.12.5
+pydantic==2.13.4
 python-dotenv==1.2.2
-pydantic-settings==2.10.0
+pydantic-settings==2.16.0
 
 # HTTP
-requests==2.33.0
-types-requests==2.32.4.20250913
+types-requests==2.33.0.20260712
+requests==2.34.2
 httpx==0.28.1
-python-dateutil==2.8.2
+python-dateutil==2.9.0.post0
 
 # Testing
 uvicorn==0.38.0
-pytest==9.0.3
+pytest==9.1.1
 pytest-cov==7.1.0
 
 # Data / viz
@@ -32,6 +32,8 @@ pandas==2.3.3
 openpyxl==3.1.5
 boto3==1.35.99
 python-multipart==0.0.20
+pandas==3.0.6
+matplotlib==3.11.2
 seaborn==0.13.2
-dash==4.0.0
+dash==4.4.1
 plotly==6.6.0
