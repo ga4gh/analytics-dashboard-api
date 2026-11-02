@@ -96,6 +96,11 @@ class PMCArticle(Base):
 
     version: Mapped[int] = mapped_column(Integer, default=1)
 
+    # ---------- Curation ----------
+    epmc_id: Mapped[Optional[str]] = mapped_column(String(64))
+    approved_by: Mapped[Optional[str]] = mapped_column(String(64))
+    approved_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True))
+
     # ---------- Relationships ----------
     article_authors: Mapped[List["ArticleAuthor"]] = relationship(
         cascade="all, delete-orphan",

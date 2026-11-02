@@ -5,7 +5,7 @@ from typing import List, Optional
 
 
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 
 class PMCFullText(BaseModel):
@@ -120,6 +120,13 @@ class PMCArticle(BaseModel):
     publication_status: str  
     language: str
     pub_type: Optional[str] = None
+
+    @field_validator("pub_type", mode="before")
+    @classmethod
+    def coerce_pub_type(cls, v):
+        if isinstance(v, list):
+            return v[0] if v else None
+        return v
 
     is_open_access: bool = False
     inepmc: bool = False
