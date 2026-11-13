@@ -26,5 +26,19 @@ class ProductionDatabaseSettings:
         return app_config.production_database_url
 
 
+class ClassifierDatabaseSettings:
+    """
+    DB the auto-classifier checks when comparing staged articles against production.
+    On staging: set CLASSIFIER_DB_URL to production RDS so comparisons are accurate.
+    On production: leave unset — falls back to production_database_url.
+    Dashboard read endpoints are NOT affected by this setting.
+    """
+
+    @property
+    def sqlalchemy_url(self) -> str:
+        return app_config.classifier_database_url
+
+
 db_settings = DatabaseSettings()
 production_db_settings = ProductionDatabaseSettings()
+classifier_db_settings = ClassifierDatabaseSettings()

@@ -34,6 +34,8 @@ Europe PMC API
       │
       ▼
 [Step 1] POST /epmc/ingest-pmc-data
+      Returns job_id immediately (runs in background)
+      Poll GET /epmc/ingestion-status/{job_id} until "completed"
       Pulls all keyword-matched articles → writes to staging
       Auto-classify runs immediately → populates pmc_review queue
       │
@@ -101,24 +103,62 @@ curl -X POST "$BASE_URL/epmc/ingest-pmc-data" \
   -d '{"keyword": "GA4GH"}'
 ```
 
-**Response** — `200 OK`
+**Response** — `202 Accepted`
 
-Returns the full list of articles now in the staging DB. The `ingestion_id` assigned to this run is recorded in server logs and discoverable via the export endpoint.
+Returns immediately with a `job_id`. The ingestion runs in the background — use the status endpoint to track progress.
 
 ```json
-[
-  {
-    "epmc_id": "PPR123456",
-    "title": "GA4GH Data Connect specification...",
-    "pub_year": 2024,
-    "doi": "10.1093/bioinformatics/btad001",
-    "is_open_access": true
-  },
-  ...
-]
+{
+  "job_id": "f3a2b1c4-9e8d-4f7a-b5c6-1234567890ab",
+  "status": "started"
+}
 ```
 
-> **Tip:** Note the `ingestion_id` from the server logs. All downstream steps accept it as an optional parameter; if omitted each step auto-detects the latest run with pending/approved reviews.
+**Poll for status**
+
+```bash
+curl "$BASE_URL/epmc/ingestion-status/<job_id>"
+```
+
+| Status      | Meaning |
+|-------------|---------|
+| `started`   | Job accepted, background task initialising. |
+| `running`   | Actively pulling from EuropePMC and writing to staging. |
+| `completed` | Ingestion and classification finished. |
+| `failed`    | An error occurred — `error` field contains the message. |
+
+Completed response:
+
+```json
+{
+  "job_id": "f3a2b1c4-9e8d-4f7a-b5c6-1234567890ab",
+  "status": "completed",
+  "ingestion_id": 42,
+  "result": {
+    "articles": 1364,
+    "authors": 3821,
+    "new": 71,
+    "unchanged": 26,
+    "changed": 213,
+    "skipped": 1054,
+    "pending_review": 284
+  }
+}
+```
+
+**Monitor live logs (staging)**
+
+```bash
+aws logs tail /analytics-dashboard/staging/backend --follow --region us-east-2
+```
+
+**Monitor live logs (production)**
+
+```bash
+aws logs tail /analytics-dashboard/production/backend --follow --region us-east-2
+```
+
+> **Tip:** Note the `ingestion_id` from the completed status response. All downstream steps accept it as an optional parameter; if omitted each step auto-detects the latest run with pending/approved reviews.
 
 ---
 

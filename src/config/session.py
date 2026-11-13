@@ -2,7 +2,7 @@ import logging
 from sqlalchemy.orm import sessionmaker, Session
 from typing import Generator
 
-from .engine import staging_engine, production_engine
+from .engine import staging_engine, production_engine, classifier_engine
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +15,13 @@ StagingSessionLocal = sessionmaker(
 
 ProductionSessionLocal = sessionmaker(
     bind=production_engine,
+    autoflush=False,
+    autocommit=False,
+    expire_on_commit=False,
+)
+
+ClassifierSessionLocal = sessionmaker(
+    bind=classifier_engine,
     autoflush=False,
     autocommit=False,
     expire_on_commit=False,

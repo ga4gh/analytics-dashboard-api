@@ -16,7 +16,7 @@ from src.services.export import build_csv, build_excel
 from src.services.storage import upload_to_s3
 from src.services.import_review import parse_review_file, apply_review_decisions
 from src.services.promotion import PromotionService
-from src.config.session import get_session, get_staging_db, StagingSessionLocal, ProductionSessionLocal
+from src.config.session import get_session, get_staging_db, StagingSessionLocal, ProductionSessionLocal, ClassifierSessionLocal
 
 
 logger = logging.getLogger(__name__)
@@ -33,11 +33,11 @@ def _run_ingestion_background(
     to_date: Optional[str],
 ) -> None:
     staging_session = StagingSessionLocal()
-    production_session = ProductionSessionLocal()
+    classifier_session = ClassifierSessionLocal()
     service = None
     try:
         staging_repo = EPMCRepo(staging_session)
-        production_repo = EPMCRepo(production_session)
+        production_repo = EPMCRepo(classifier_session)
         service = EPMCService(staging_repo)
 
         _jobs[job_id]["status"] = "running"
@@ -69,10 +69,11 @@ def _run_ingestion_background(
         service.record_ingestion_completed(service.ingestion_id, keyword, classify_result)
         staging_repo.commit_to_db()
 
+        classify_dict = vars(classify_result) if classify_result else {}
         _jobs[job_id].update({
             "status": "completed",
             "ingestion_id": service.ingestion_id,
-            "result": {**counts, **(classify_result or {})},
+            "result": {**counts, **classify_dict},
         })
         logger.info("Background ingestion complete job_id=%s ingestion_id=%s", job_id, service.ingestion_id)
 
@@ -84,7 +85,7 @@ def _run_ingestion_background(
         logger.exception("Background ingestion failed job_id=%s: %s", job_id, e)
     finally:
         staging_session.close()
-        production_session.close()
+        classifier_session.close()
 
 
 def get_epmc_repo(db: Session = Depends(get_session)) -> EPMCRepo:

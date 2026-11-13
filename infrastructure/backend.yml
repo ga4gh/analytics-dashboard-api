@@ -30,6 +30,10 @@ Parameters:
   DBURL:
     Type: String
     NoEcho: true
+  ClassifierDBURL:
+    Type: String
+    NoEcho: true
+    Default: ""
   Region:
     Type: String
   Prefix:
@@ -174,6 +178,8 @@ Resources:
           Environment:
             - Name: DATABASE_URL
               Value: !Ref DBURL
+            - Name: CLASSIFIER_DB_URL
+              Value: !Ref ClassifierDBURL
             - Name: EXPORT_S3_BUCKET
               Value: !Ref ExportS3Bucket
           PortMappings:

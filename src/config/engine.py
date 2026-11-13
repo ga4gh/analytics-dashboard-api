@@ -1,6 +1,6 @@
 from sqlalchemy import create_engine
 from importlib import util
-from src.config.database import db_settings, production_db_settings
+from src.config.database import db_settings, production_db_settings, classifier_db_settings
 
 
 def _resolve_url(raw_url: str) -> str:
@@ -24,6 +24,13 @@ production_engine = create_engine(
     _resolve_url(production_db_settings.sqlalchemy_url),
     pool_size=10,
     max_overflow=20,
+    pool_pre_ping=True,
+)
+
+classifier_engine = create_engine(
+    _resolve_url(classifier_db_settings.sqlalchemy_url),
+    pool_size=5,
+    max_overflow=10,
     pool_pre_ping=True,
 )
 
