@@ -325,8 +325,11 @@ class EPMCClient:
         return json_response
 
     def get_citations(self, pmcid, source="MED"):
-        json_response = self.get_json(self.base_url, self.get_citations_endpoint(pmcid, source=source))
-        return json_response
+        try:
+            return self.get_json(self.base_url, self.get_citations_endpoint(pmcid, source=source))
+        except Exception as e:
+            logger.warning("Citations unavailable for %s/%s: %s — skipping", source, pmcid, e)
+            return {}
 
     def get_grants(self, keyword):
         json_response = self.get_json(self.grants_url, self.get_grants_endpoint(keyword))
@@ -382,7 +385,7 @@ class EPMCClient:
             if iters == 1:
                 logger.debug("EPMC request: GET %s params=%s", url, params)
 
-            resp = requests.get(url, headers=headers, params=params, timeout=30)
+            resp = requests.get(url, headers=headers, params=params, timeout=3600)
             resp.raise_for_status()
 
             try:
