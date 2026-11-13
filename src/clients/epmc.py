@@ -385,7 +385,7 @@ class EPMCClient:
             if iters == 1:
                 logger.debug("EPMC request: GET %s params=%s", url, params)
 
-            resp = requests.get(url, headers=headers, params=params, timeout=3600)
+            resp = requests.get(url, headers=headers, params=params, timeout=300)
             resp.raise_for_status()
 
             try:

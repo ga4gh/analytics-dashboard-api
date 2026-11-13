@@ -1,6 +1,7 @@
 import logging
+import uuid
 from typing import Optional
-from fastapi import APIRouter, HTTPException, Depends, Body, Query, UploadFile, File
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Depends, Body, Query, UploadFile, File
 from sqlalchemy.orm import Session
 import json
 from datetime import datetime, timezone
@@ -15,11 +16,76 @@ from src.services.export import build_csv, build_excel
 from src.services.storage import upload_to_s3
 from src.services.import_review import parse_review_file, apply_review_decisions
 from src.services.promotion import PromotionService
-from src.config.session import get_session, get_staging_db
+from src.config.session import get_session, get_staging_db, StagingSessionLocal, ProductionSessionLocal
 
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/epmc", tags=["Articles"])
+
+# In-memory job store for background ingestion jobs
+_jobs: dict[str, dict] = {}
+
+
+def _run_ingestion_background(
+    job_id: str,
+    keyword: str,
+    from_date: Optional[str],
+    to_date: Optional[str],
+) -> None:
+    staging_session = StagingSessionLocal()
+    production_session = ProductionSessionLocal()
+    service = None
+    try:
+        staging_repo = EPMCRepo(staging_session)
+        production_repo = EPMCRepo(production_session)
+        service = EPMCService(staging_repo)
+
+        _jobs[job_id]["status"] = "running"
+
+        last_date = staging_repo.get_last_ingestion_date()
+        effective_from = from_date or (last_date.strftime("%Y-%m-%d") if last_date else None)
+
+        delta_epmc_ids: Optional[set] = None
+        if effective_from:
+            delta_epmc_ids = service.fetch_delta_epmc_ids(keyword, effective_from, to_date)
+
+        run_type = "full" if delta_epmc_ids is None else "full+delta"
+        service.record_ingestion_started(keyword, run_type=run_type)
+
+        logger.info(
+            "Background ingestion: keyword=%s run_type=%s delta_ids=%s",
+            keyword, run_type,
+            f"{len(delta_epmc_ids)} updated articles" if delta_epmc_ids is not None else "none",
+        )
+
+        counts = service.insert_articles_by_keyword(keyword, created_by="system", run_type=run_type)
+
+        classify_service = AutoClassifyService(staging_repo, production_repo)
+        classify_result = classify_service.classify_ingestion_run(
+            ingestion_id=service.ingestion_id,
+            delta_epmc_ids=delta_epmc_ids,
+            created_by="system",
+        )
+        service.record_ingestion_completed(service.ingestion_id, keyword, classify_result)
+        staging_repo.commit_to_db()
+
+        _jobs[job_id].update({
+            "status": "completed",
+            "ingestion_id": service.ingestion_id,
+            "result": {**counts, **(classify_result or {})},
+        })
+        logger.info("Background ingestion complete job_id=%s ingestion_id=%s", job_id, service.ingestion_id)
+
+    except Exception as e:
+        staging_session.rollback()
+        if service:
+            service.record_ingestion_failed(None, keyword, str(e))
+        _jobs[job_id].update({"status": "failed", "error": str(e)})
+        logger.exception("Background ingestion failed job_id=%s: %s", job_id, e)
+    finally:
+        staging_session.close()
+        production_session.close()
+
 
 def get_epmc_repo(db: Session = Depends(get_session)) -> EPMCRepo:
     """Production DB — used by all dashboard/read endpoints."""
@@ -176,69 +242,23 @@ class EPMC:
         ):
             return repo.get_all_pmc_affiliations(limit=limit, skip=skip)
 
-        @self.router.post("/epmc/ingest-pmc-data", response_model=list[PMCArticleFull])
+        @self.router.post("/epmc/ingest-pmc-data")
         async def ingest_pmc_data(
+            background_tasks: BackgroundTasks,
             keyword: str = Body(..., embed=True),
             from_date: Optional[str] = Body(None, embed=True),
             to_date: Optional[str] = Body(None, embed=True),
-            staging_repo: EPMCRepo = Depends(get_staging_epmc_repo),
-            production_repo: EPMCRepo = Depends(get_epmc_repo),
         ):
-            service = EPMCService(staging_repo)
+            job_id = str(uuid.uuid4())
+            _jobs[job_id] = {"job_id": job_id, "status": "started"}
+            background_tasks.add_task(_run_ingestion_background, job_id, keyword, from_date, to_date)
+            return {"job_id": job_id, "status": "started"}
 
-            # ── Phase 1: Delta pull (in-memory, no DB writes) ──────────────────
-            # Determine the delta window: explicit from_date > auto-detect from last
-            # ingestion > skip (first ever run).
-            last_date = staging_repo.get_last_ingestion_date()
-            effective_from = from_date or (last_date.strftime("%Y-%m-%d") if last_date else None)
-
-            delta_epmc_ids: Optional[set] = None
-            if effective_from:
-                delta_epmc_ids = service.fetch_delta_epmc_ids(keyword, effective_from, to_date)
-
-            run_type = "full" if delta_epmc_ids is None else "full+delta"
-            service.record_ingestion_started(keyword, run_type=run_type)
-
-            try:
-                # ── Phase 2: Full pull (always writes all articles to staging) ──
-                logger.info(
-                    "Ingesting PMC data: keyword=%s run_type=%s delta_ids=%s",
-                    keyword, run_type,
-                    f"{len(delta_epmc_ids)} updated articles" if delta_epmc_ids is not None else "none",
-                )
-                counts = service.insert_articles_by_keyword(keyword, created_by="system", run_type=run_type)
-                logger.info(
-                    "--- PULL COMPLETE | ingestion_id=%s articles=%d authors=%d "
-                    "affiliations=%d fulltexts=%d ---",
-                    service.ingestion_id,
-                    counts.get("articles", 0),
-                    counts.get("authors", 0),
-                    counts.get("affiliations", 0),
-                    counts.get("fulltexts", 0),
-                )
-
-                # ── Classification: uses Phase 1 delta set to drive diff ────────
-                logger.info("--- CLASSIFICATION STARTING | ingestion_id=%s ---", service.ingestion_id)
-                classify_service = AutoClassifyService(staging_repo, production_repo)
-                classify_result = classify_service.classify_ingestion_run(
-                    ingestion_id=service.ingestion_id,
-                    delta_epmc_ids=delta_epmc_ids,
-                    created_by="system",
-                )
-                service.record_ingestion_completed(service.ingestion_id, keyword, classify_result)
-
-                # Single commit — articles + classification + reviews + audit logs all atomic
-                staging_repo.commit_to_db()
-
-            except Exception as e:
-                staging_repo.rollback()
-                # ingestion_id was rolled back — pass None so the audit log
-                # does not reference a non-existent ingestion row
-                service.record_ingestion_failed(None, keyword, str(e))
-                raise HTTPException(status_code=500, detail=f"Ingestion failed: {e}")
-
-            articles = staging_repo.get_all_articles()
-            return [PMCArticleFull.model_validate(article) for article in articles]
+        @self.router.get("/epmc/ingestion-status/{job_id}")
+        async def get_ingestion_status(job_id: str):
+            if job_id not in _jobs:
+                raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+            return _jobs[job_id]
 
         @self.router.post("/epmc/ingest-pmc-grants")
         async def ingest_pmc_grants(
