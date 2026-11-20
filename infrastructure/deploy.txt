@@ -133,6 +133,7 @@ aws cloudformation deploy \
     ApiImage=282236276875.dkr.ecr.us-east-2.amazonaws.com/analytics-dashboard-api:latest \
     "DBURL=postgresql://analytics_dashboard_staging_user:${DBPASS}@analytics-dashboard-staging-base-database-verhcap8spla.c0q4keadjybw.us-east-2.rds.amazonaws.com:5432/analytics_dashboard_staging_db?sslmode=require" \
     "ClassifierDBURL=postgresql://analytics_dashboard_production_user:${PROD_DBPASS}@analytics-dashboard-production-base-database-pbd4cqc4nky9.c0q4keadjybw.us-east-2.rds.amazonaws.com:5432/analytics_dashboard_production_db?sslmode=require" \
+    "ProductionDBURL=postgresql://analytics_dashboard_production_user:${PROD_DBPASS}@analytics-dashboard-production-base-database-pbd4cqc4nky9.c0q4keadjybw.us-east-2.rds.amazonaws.com:5432/analytics_dashboard_production_db?sslmode=require" \
     CertificateArn=arn:aws:acm:us-east-2:282236276875:certificate/0204f2cb-bf5e-4d11-a562-22939387c874
 
 Step 4:

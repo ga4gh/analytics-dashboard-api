@@ -4,8 +4,11 @@ from datetime import datetime, timezone
 from typing import List, Optional
 
 from src.models.entities.audit_log import AuditLog
+from src.models.entities.citations import Citation, Reference
 from src.models.entities.enums import AuditEventType
+from src.models.entities.extras import Grant
 from src.models.entities.pmc_article import PMCArticle
+from src.models.entities.pmc_author import ArticleAuthor, PMCAffiliation, PMCAuthor
 from src.models.entities.record import Record
 
 logger = logging.getLogger(__name__)
@@ -157,7 +160,16 @@ class PromotionService:
             updated_at=now,
             version=1,
         )
-        self.production_repo.insert_article(prod_article)
+        prod_article_id = self.production_repo.insert_article(prod_article)
+
+        self._copy_related_records(
+            staged_article_id=staged.id,
+            staged_record_id=staged.record_id,
+            prod_article_id=prod_article_id,
+            prod_record_id=prod_record_id,
+            promoted_by=promoted_by,
+            now=now,
+        )
 
         self._write_audit(
             repo=self.staging_repo,
@@ -227,6 +239,157 @@ class PromotionService:
         logger.info(
             "PROMOTION_CHANGED epmc_id=%s review_id=%d fields=%s promoted_by=%s",
             review.epmc_id, review.id, list(diff.keys()), promoted_by,
+        )
+
+    # ------------------------------------------------------------------
+    # Related-records copy
+    # ------------------------------------------------------------------
+
+    def _copy_related_records(
+        self,
+        staged_article_id: int,
+        staged_record_id: int,
+        prod_article_id: int,
+        prod_record_id: int,
+        promoted_by: str,
+        now: datetime,
+    ) -> None:
+        # staging_author_id → production_author_id mapping (for affiliations)
+        author_id_map: dict[int, int] = {}
+
+        # 1. Authors + ArticleAuthor junction
+        article_authors = self.staging_repo.get_article_authors_for_article(staged_article_id)
+        for aa in article_authors:
+            staging_author = self.staging_repo.get_author_by_id(aa.author_id)
+            if staging_author is None:
+                continue
+            prod_author = PMCAuthor(
+                fullname=staging_author.fullname,
+                firstname=staging_author.firstname,
+                lastname=staging_author.lastname,
+                initials=staging_author.initials,
+                orcid=staging_author.orcid,
+                ingestion_id=None,
+                created_by=promoted_by,
+                created_at=now,
+                updated_by=promoted_by,
+                updated_at=now,
+                version=1,
+            )
+            prod_author_id = self.production_repo.insert_author(prod_author)
+            author_id_map[aa.author_id] = prod_author_id
+
+            prod_aa = ArticleAuthor(
+                article_id=prod_article_id,
+                author_id=prod_author_id,
+                author_order=aa.author_order,
+                ingestion_id=None,
+                created_by=promoted_by,
+                created_at=now,
+                updated_by=promoted_by,
+                updated_at=now,
+                version=1,
+            )
+            self.production_repo.insert_article_author(prod_aa)
+
+        # 2. Affiliations (need mapped author_id)
+        affiliations = self.staging_repo.get_affiliations_for_article(staged_article_id)
+        for aff in affiliations:
+            prod_author_id = author_id_map.get(aff.author_id)
+            if prod_author_id is None:
+                continue
+            prod_aff = PMCAffiliation(
+                author_id=prod_author_id,
+                article_id=prod_article_id,
+                org_name=aff.org_name,
+                affiliation_order=aff.affiliation_order,
+                ingestion_id=None,
+                created_by=promoted_by,
+                created_at=now,
+                updated_by=promoted_by,
+                updated_at=now,
+                version=1,
+            )
+            self.production_repo.insert_affiliation(prod_aff)
+
+        # 3. Citations
+        citations = self.staging_repo.get_citations_for_article(staged_article_id)
+        for cit in citations:
+            prod_cit = Citation(
+                article_id=prod_article_id,
+                citation_id=cit.citation_id,
+                source=cit.source,
+                citation_type=cit.citation_type,
+                title=cit.title,
+                authors=cit.authors,
+                pub_year=cit.pub_year,
+                citation_count=cit.citation_count,
+                ingestion_id=None,
+                created_by=promoted_by,
+                created_at=now,
+                updated_by=promoted_by,
+                updated_at=now,
+                version=1,
+            )
+            self.production_repo.insert_citation(prod_cit)
+
+        # 4. References
+        references = self.staging_repo.get_references_for_article(staged_article_id)
+        for ref in references:
+            prod_ref = Reference(
+                article_id=prod_article_id,
+                reference_id=ref.reference_id,
+                source=ref.source,
+                citation_type=ref.citation_type,
+                title=ref.title,
+                authors=ref.authors,
+                pub_year=ref.pub_year,
+                issn=ref.issn,
+                essn=ref.essn,
+                cited_order=ref.cited_order,
+                match=ref.match,
+                ingestion_id=None,
+                created_by=promoted_by,
+                created_at=now,
+                updated_by=promoted_by,
+                updated_at=now,
+                version=1,
+            )
+            self.production_repo.insert_reference(prod_ref)
+
+        # 5. Grants (linked to record, not article)
+        grants = self.staging_repo.get_grants_for_record(staged_record_id)
+        for g in grants:
+            prod_grant = Grant(
+                record_id=prod_record_id,
+                grant_id=g.grant_id,
+                agency=g.agency,
+                family_name=g.family_name,
+                given_name=g.given_name,
+                initials=g.initials,
+                alias=g.alias,
+                orcid=g.orcid,
+                funder_name=g.funder_name,
+                doi=g.doi,
+                title=g.title,
+                abstract=g.abstract,
+                start_date=g.start_date,
+                end_date=g.end_date,
+                institution_name=g.institution_name,
+                ingestion_id=None,
+                created_by=promoted_by,
+                created_at=now,
+                updated_by=promoted_by,
+                updated_at=now,
+                version=1,
+            )
+            self.production_repo.insert_grant(prod_grant)
+
+        logger.debug(
+            "PROMOTION_RELATED article_id=%d authors=%d affiliations=%d "
+            "citations=%d references=%d grants=%d",
+            prod_article_id, len(article_authors), len(affiliations),
+            len(citations), len(references), len(grants),
         )
 
     # ------------------------------------------------------------------

@@ -1396,3 +1396,80 @@ class EPMCRepo:
         self.db.add(record)
         self.db.flush()
         return record.id
+
+    # ------------------------------------------------------------------
+    # Promotion helpers — fetch related records from staging by direct PK
+    # ------------------------------------------------------------------
+
+    def get_article_authors_for_article(self, article_id: int) -> list[ArticleAuthor]:
+        return (
+            self.db.query(ArticleAuthor)
+            .filter(ArticleAuthor.article_id == article_id)
+            .order_by(ArticleAuthor.author_order.asc().nullslast())
+            .all()
+        )
+
+    def get_author_by_id(self, author_id: int) -> Optional[PMCAuthor]:
+        return self.db.get(PMCAuthor, author_id)
+
+    def get_affiliations_for_article(self, article_id: int) -> list[PMCAffiliation]:
+        return (
+            self.db.query(PMCAffiliation)
+            .filter(PMCAffiliation.article_id == article_id)
+            .all()
+        )
+
+    def get_citations_for_article(self, article_id: int) -> list[Citation]:
+        return (
+            self.db.query(Citation)
+            .filter(Citation.article_id == article_id)
+            .all()
+        )
+
+    def get_references_for_article(self, article_id: int) -> list[Reference]:
+        return (
+            self.db.query(Reference)
+            .filter(Reference.article_id == article_id)
+            .all()
+        )
+
+    def get_grants_for_record(self, record_id: int) -> list[Grant]:
+        return (
+            self.db.query(Grant)
+            .filter(Grant.record_id == record_id)
+            .all()
+        )
+
+    # ------------------------------------------------------------------
+    # Promotion helpers — insert related records into production
+    # ------------------------------------------------------------------
+
+    def insert_author(self, author: PMCAuthor) -> int:
+        self.db.add(author)
+        self.db.flush()
+        return author.id
+
+    def insert_article_author(self, aa: ArticleAuthor) -> int:
+        self.db.add(aa)
+        self.db.flush()
+        return aa.id
+
+    def insert_affiliation(self, aff: PMCAffiliation) -> int:
+        self.db.add(aff)
+        self.db.flush()
+        return aff.id
+
+    def insert_citation(self, citation: Citation) -> int:
+        self.db.add(citation)
+        self.db.flush()
+        return citation.id
+
+    def insert_reference(self, ref: Reference) -> int:
+        self.db.add(ref)
+        self.db.flush()
+        return ref.id
+
+    def insert_grant(self, grant: Grant) -> int:
+        self.db.add(grant)
+        self.db.flush()
+        return grant.id
