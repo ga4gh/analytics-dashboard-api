@@ -1,23 +1,99 @@
 import logging
-from fastapi import APIRouter, HTTPException, Depends, Body
+import uuid
+from typing import Optional
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Depends, Body, Query, UploadFile, File
 from sqlalchemy.orm import Session
 import json
 from datetime import datetime, timezone
-
-logger = logging.getLogger(__name__)
-
 from src.models.pmc_article import PMCArticle, PMCArticleCustom, PMCArticleFull, PMCArticleListCustomResponse
 from src.models.pmc_author import PMCAuthor
 from src.models.citation import Citation as CitationModel, CitationList, TotalCitations
 from src.services.epmc import EPMCService as EPMCService
 from src.repositories.epmc import EPMCRepo as EPMCRepo
 from src.services.grant import GrantService as Grant
-from src.config.session import get_session
+from src.services.auto_classify import AutoClassifyService
+from src.services.export import build_csv, build_excel
+from src.services.storage import upload_to_s3
+from src.services.import_review import parse_review_file, apply_review_decisions
+from src.services.promotion import PromotionService
+from src.config.session import get_session, get_staging_db, StagingSessionLocal, ProductionSessionLocal, ClassifierSessionLocal
 
+
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/epmc", tags=["Articles"])
+
+# In-memory job store for background ingestion jobs
+_jobs: dict[str, dict] = {}
+
+
+def _run_ingestion_background(
+    job_id: str,
+    keyword: str,
+    from_date: Optional[str],
+    to_date: Optional[str],
+) -> None:
+    staging_session = StagingSessionLocal()
+    classifier_session = ClassifierSessionLocal()
+    service = None
+    try:
+        staging_repo = EPMCRepo(staging_session)
+        production_repo = EPMCRepo(classifier_session)
+        service = EPMCService(staging_repo)
+
+        _jobs[job_id]["status"] = "running"
+
+        last_date = staging_repo.get_last_ingestion_date()
+        effective_from = from_date or (last_date.strftime("%Y-%m-%d") if last_date else None)
+
+        delta_epmc_ids: Optional[set] = None
+        if effective_from:
+            delta_epmc_ids = service.fetch_delta_epmc_ids(keyword, effective_from, to_date)
+
+        run_type = "full" if delta_epmc_ids is None else "full+delta"
+        service.record_ingestion_started(keyword, run_type=run_type)
+
+        logger.info(
+            "Background ingestion: keyword=%s run_type=%s delta_ids=%s",
+            keyword, run_type,
+            f"{len(delta_epmc_ids)} updated articles" if delta_epmc_ids is not None else "none",
+        )
+
+        counts = service.insert_articles_by_keyword(keyword, created_by="system", run_type=run_type)
+
+        classify_service = AutoClassifyService(staging_repo, production_repo)
+        classify_result = classify_service.classify_ingestion_run(
+            ingestion_id=service.ingestion_id,
+            delta_epmc_ids=delta_epmc_ids,
+            created_by="system",
+        )
+        service.record_ingestion_completed(service.ingestion_id, keyword, classify_result)
+        staging_repo.commit_to_db()
+
+        classify_dict = vars(classify_result) if classify_result else {}
+        _jobs[job_id].update({
+            "status": "completed",
+            "ingestion_id": service.ingestion_id,
+            "result": {**counts, **classify_dict},
+        })
+        logger.info("Background ingestion complete job_id=%s ingestion_id=%s", job_id, service.ingestion_id)
+
+    except Exception as e:
+        staging_session.rollback()
+        if service:
+            service.record_ingestion_failed(None, keyword, str(e))
+        _jobs[job_id].update({"status": "failed", "error": str(e)})
+        logger.exception("Background ingestion failed job_id=%s: %s", job_id, e)
+    finally:
+        staging_session.close()
+        classifier_session.close()
 
 
 def get_epmc_repo(db: Session = Depends(get_session)) -> EPMCRepo:
+    """Production DB — used by all dashboard/read endpoints."""
+    return EPMCRepo(db)
+
+def get_staging_epmc_repo(db: Session = Depends(get_staging_db)) -> EPMCRepo:
+    """Staging DB — used by ingestion endpoints."""
     return EPMCRepo(db)
 
 
@@ -61,6 +137,15 @@ class EPMC:
             repo: EPMCRepo = Depends(get_epmc_repo),
         ):
             return repo.get_all_grants(limit=limit, skip=skip)
+
+        @self.router.get("/epmc/funding-agencies")
+        async def get_funding_agencies(
+            limit: int = 50,
+            repo: EPMCRepo = Depends(get_epmc_repo),
+        ):
+            agencies = repo.get_funding_agencies(limit=limit)
+            total_unique = repo.get_unique_funding_agencies_count()
+            return {"agencies": agencies, "total_unique": total_unique}
 
         @self.router.get("/epmc/all-pmc-authors")
         async def get_all_pmc_authors(
@@ -158,46 +243,28 @@ class EPMC:
         ):
             return repo.get_all_pmc_affiliations(limit=limit, skip=skip)
 
-        @self.router.post("/epmc/ingest-pmc-data", response_model=list[PMCArticleFull])
+        @self.router.post("/epmc/ingest-pmc-data")
         async def ingest_pmc_data(
+            background_tasks: BackgroundTasks,
             keyword: str = Body(..., embed=True),
-            repo: EPMCRepo = Depends(get_epmc_repo),
+            from_date: Optional[str] = Body(None, embed=True),
+            to_date: Optional[str] = Body(None, embed=True),
         ):
-            service = EPMCService(repo)
-            grant_service = Grant(repo)
+            job_id = str(uuid.uuid4())
+            _jobs[job_id] = {"job_id": job_id, "status": "started"}
+            background_tasks.add_task(_run_ingestion_background, job_id, keyword, from_date, to_date)
+            return {"job_id": job_id, "status": "started"}
 
-            try:
-                logger.info("Ingesting PMC data for keyword: %s", keyword)
-                result = service.insert_articles_by_keyword(keyword, created_by="system")
-                #citations_result = service.insert_citations(created_by="system")
-                references_result = service.insert_references(created_by="system")
-                grant_result = grant_service.create_grants(keyword)
-
-                # Write a JSON-line entry with ingestion results and timestamp.
-                try:
-                    log_entry = {
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
-                        "keyword": keyword,
-                        "articles": result,
-                        #"citations": citations_result,
-                        "references": references_result,
-                        "grants": grant_result,
-                    }
-                    with open("ingestion_log.txt", "a", encoding="utf-8") as lf:
-                        lf.write(json.dumps(log_entry, default=str) + "\n")
-                except Exception:
-                    # Don't let logging failures break ingestion
-                    pass
-            except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Ingestion failed: {e}")
-
-            articles = repo.get_all_articles()
-            return [PMCArticleFull.model_validate(article) for article in articles]
+        @self.router.get("/epmc/ingestion-status/{job_id}")
+        async def get_ingestion_status(job_id: str):
+            if job_id not in _jobs:
+                raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+            return _jobs[job_id]
 
         @self.router.post("/epmc/ingest-pmc-grants")
         async def ingest_pmc_grants(
             keyword: str = Body(..., embed=True),
-            repo: EPMCRepo = Depends(get_epmc_repo),
+            repo: EPMCRepo = Depends(get_staging_epmc_repo),
         ):
             """Ingest grants from Europe PMC for a given keyword using GrantService.create_grants."""
             grant_service = Grant(repo)
@@ -225,7 +292,7 @@ class EPMC:
         @self.router.post("/epmc/ingest-pmc-references")
         async def ingest_pmc_references(
             use_db_articles: bool = True,
-            repo: EPMCRepo = Depends(get_epmc_repo),
+            repo: EPMCRepo = Depends(get_staging_epmc_repo),
         ):
             """Ingest references for all articles in the database using EPMCService.insert_references."""
             service = EPMCService(repo)
@@ -317,3 +384,165 @@ class EPMC:
         ):
             service = EPMCService(repo)
             return service.get_cumulative_citations()
+
+        @self.router.get("/epmc/articles-light")
+        async def get_articles_light(
+            repo: EPMCRepo = Depends(get_epmc_repo),
+        ):
+            articles = repo.get_articles_for_dashboard()
+            return {"articles": articles, "article_count": len(articles)}
+
+        @self.router.get("/epmc/publication-types")
+        async def get_publication_types(
+            repo: EPMCRepo = Depends(get_epmc_repo),
+        ):
+            types = repo.get_publication_types()
+            return {"types": types}
+
+        @self.router.get("/epmc/review/export")
+        async def export_review_queue(
+            ingestion_id: Optional[int] = Query(None, description="Ingestion ID to export. Defaults to latest with pending reviews."),
+            format: str = Query("excel", description="Output format: 'excel' or 'csv'"),
+            staging_repo: EPMCRepo = Depends(get_staging_epmc_repo),
+        ):
+            """
+            Generates the review queue export file and saves it to the exports/ directory.
+            Returns a JSON response with the file location and summary — no file content in the response.
+            """
+            import os
+            try:
+                review_rows = staging_repo.get_reviews_for_export(ingestion_id=ingestion_id)
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Failed to fetch reviews: {e}")
+
+            if not review_rows:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"No pending reviews found{f' for ingestion_id {ingestion_id}' if ingestion_id else ''}.",
+                )
+
+            effective_id = review_rows[0][0].ingestion_id
+            new_count = sum(1 for r, _, _ in review_rows if r.review_type == "new")
+            changed_count = sum(1 for r, _, _ in review_rows if r.review_type == "changed")
+            ingested_at = review_rows[0][2].ingested_at.strftime("%Y-%m-%d %H:%M UTC") if review_rows[0][2].ingested_at else ""
+            ext = "csv" if format.lower() == "csv" else "xlsx"
+            filename = f"review_queue_{effective_id}.{ext}"
+
+            exports_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "exports"))
+            os.makedirs(exports_dir, exist_ok=True)
+            filepath = os.path.join(exports_dir, filename)
+
+            content = build_csv(review_rows) if format.lower() == "csv" else build_excel(review_rows)
+            with open(filepath, "wb") as f:
+                f.write(content)
+
+            # Upload to S3 if configured; fall back to local file path
+            download_url: Optional[str] = None
+            try:
+                download_url = upload_to_s3(content, filename)
+                logger.info("EXPORT S3 upload complete file=%s", filename)
+            except RuntimeError:
+                logger.info("EXPORT_S3_BUCKET not set — skipping S3 upload, file saved locally")
+            except Exception as e:
+                logger.warning("EXPORT S3 upload failed, file saved locally: %s", e)
+
+            logger.info(
+                "EXPORT finished ingestion_id=%s total=%d new=%d changed=%d file=%s",
+                effective_id, len(review_rows), new_count, changed_count, filepath,
+            )
+
+            response = {
+                "status": "success",
+                "message": f"Export finished for ingestion_id: {effective_id}",
+                "ingestion_id": effective_id,
+                "ingested_at": ingested_at,
+                "total_pending_reviews": len(review_rows),
+                "new_articles": new_count,
+                "changed_articles": changed_count,
+                "format": format.lower(),
+                "filename": filename,
+                "file_path": filepath,
+            }
+            if download_url:
+                response["download_url"] = download_url
+
+            return response
+
+        @self.router.post("/epmc/review/import")
+        async def import_review_decisions(
+            reviewed_by: str = Query(..., description="Name or email of the person who filled the review file"),
+            file: UploadFile = File(..., description="Completed review Excel or CSV file"),
+            staging_repo: EPMCRepo = Depends(get_staging_epmc_repo),
+        ):
+            """
+            Import review decisions from a completed Excel or CSV file.
+            Updates pmc_review rows in staging and writes audit log entries.
+            Does NOT promote records to production — that is a separate step.
+            """
+            allowed = {".xlsx", ".xls", ".csv"}
+            suffix = "." + file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else ""
+            if suffix not in allowed:
+                raise HTTPException(status_code=400, detail=f"Unsupported file type '{suffix}'. Upload an Excel or CSV file.")
+
+            content = await file.read()
+
+            try:
+                parsed = parse_review_file(content, file.filename)
+            except ValueError as e:
+                raise HTTPException(status_code=422, detail=str(e))
+
+            result = apply_review_decisions(parsed, staging_repo, reviewed_by)
+
+            return {
+                "status": "success",
+                "message": f"Import complete — {result.processed} decision(s) applied",
+                "reviewed_by": reviewed_by,
+                "filename": file.filename,
+                "total_rows_in_file": len(parsed.rows) + parsed.skipped_empty + len(parsed.invalid),
+                "skipped_empty_decision": parsed.skipped_empty,
+                "invalid_rows": parsed.invalid,
+                "processed": result.processed,
+                "skipped_already_reviewed": result.skipped,
+                "not_found": result.not_found,
+                "errors": result.errors,
+            }
+
+        @self.router.post("/epmc/review/promote")
+        async def promote_approved_reviews(
+            promoted_by: str = Query(..., description="Name or email of the person triggering promotion"),
+            ingestion_id: Optional[int] = Query(None, description="Ingestion ID to promote. Defaults to latest with approved reviews."),
+            staging_repo: EPMCRepo = Depends(get_staging_epmc_repo),
+            production_repo: EPMCRepo = Depends(get_epmc_repo),
+        ):
+            """
+            Promote all approved staged records to the production database.
+            NEW approved  → inserts article into production.
+            CHANGED approved → applies diff fields to existing production article.
+            Writes audit log entries to both staging and production DBs.
+            """
+            if ingestion_id is None:
+                from sqlalchemy import select as sa_select
+                from src.models.entities.pmc_review import PMCReview as PMCReviewModel
+                ingestion_id = staging_repo.db.execute(
+                    sa_select(PMCReviewModel.ingestion_id)
+                    .where(PMCReviewModel.review_status == "approved")
+                    .order_by(PMCReviewModel.ingestion_id.desc())
+                    .limit(1)
+                ).scalar_one_or_none()
+
+                if ingestion_id is None:
+                    raise HTTPException(status_code=404, detail="No approved reviews found to promote.")
+
+            service = PromotionService(staging_repo=staging_repo, production_repo=production_repo)
+            result = service.promote(ingestion_id=ingestion_id, promoted_by=promoted_by)
+
+            return {
+                "status": "success",
+                "message": f"Promotion complete for ingestion_id: {ingestion_id}",
+                "ingestion_id": ingestion_id,
+                "promoted_by": promoted_by,
+                "promoted_new": result.promoted_new,
+                "promoted_changed": result.promoted_changed,
+                "skipped": result.skipped,
+                "errors": result.errors,
+            }
